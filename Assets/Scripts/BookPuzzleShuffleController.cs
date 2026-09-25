@@ -17,7 +17,9 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
     private readonly List<Transform> slots = new List<Transform>();
     private readonly List<float> bookWidths = new List<float>();
     private float layoutLeftEdge;
+    private float layoutRightEdge;
     private float effectiveSpacing;
+    private Vector3 shelfAxis;
     private bool isInitialized;
 
     private void Start()
@@ -88,30 +90,36 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
         }
 
         bookWidths.Clear();
+        shelfAxis = ResolveShelfAxis();
         layoutLeftEdge = float.PositiveInfinity;
-        float originalRightEdge = float.NegativeInfinity;
+        layoutRightEdge = float.NegativeInfinity;
         float totalBookWidth = 0f;
 
         for (int index = 0; index < books.Count; index++)
         {
-            if (!TryGetBookBounds(books[index], out Bounds bounds))
+            if (!TryGetProjectedBounds(books[index], shelfAxis, out float left, out float right))
             {
                 Debug.LogError("Book" + (index + 1) + " has no Renderer and cannot be shuffled.", books[index]);
                 return false;
             }
 
-            float width = bounds.size.x;
+            float width = right - left;
             bookWidths.Add(width);
             totalBookWidth += width;
-            layoutLeftEdge = Mathf.Min(layoutLeftEdge, bounds.min.x);
-            originalRightEdge = Mathf.Max(originalRightEdge, bounds.max.x);
+            layoutLeftEdge = Mathf.Min(layoutLeftEdge, left);
+            layoutRightEdge = Mathf.Max(layoutRightEdge, right);
         }
 
-        float originalSpan = originalRightEdge - layoutLeftEdge;
+        float originalSpan = layoutRightEdge - layoutLeftEdge;
         float originalAverageSpacing = books.Count > 1
             ? (originalSpan - totalBookWidth) / (books.Count - 1)
             : 0f;
-        effectiveSpacing = Mathf.Max(minimumBookSpacing, originalAverageSpacing);
+        // The authored book span is the shelf's usable width. Prefer its original
+        // gap, but never expand the layout beyond those two shelf edges.
+        float maximumSpacing = books.Count > 1
+            ? Mathf.Max(0f, (originalSpan - totalBookWidth) / (books.Count - 1))
+            : 0f;
+        effectiveSpacing = Mathf.Min(Mathf.Max(0f, Mathf.Max(minimumBookSpacing, originalAverageSpacing)), maximumSpacing);
 
         UpdateSolvedSlotPositions();
 
@@ -131,8 +139,8 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
         for (int orderIndex = 0; orderIndex < orderedBookIndices.Count; orderIndex++)
         {
             int bookIndex = orderedBookIndices[orderIndex];
-            float targetCenterX = cursor + bookWidths[bookIndex] * 0.5f;
-            MoveBookCenterToX(books[bookIndex], targetCenterX);
+            float targetCenter = cursor + bookWidths[bookIndex] * 0.5f;
+            MoveBookCenterToCoordinate(books[bookIndex], targetCenter);
             cursor += bookWidths[bookIndex] + effectiveSpacing;
         }
     }
@@ -143,39 +151,49 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
 
         for (int index = 0; index < slots.Count; index++)
         {
-            float targetCenterX = cursor + bookWidths[index] * 0.5f;
+            float targetCenter = cursor + bookWidths[index] * 0.5f;
             Vector3 slotPosition = slots[index].position;
-            slotPosition.x = targetCenterX;
+            float currentCenter = Vector3.Dot(slotPosition, shelfAxis);
+            slotPosition += shelfAxis * (targetCenter - currentCenter);
             slots[index].position = slotPosition;
             cursor += bookWidths[index] + effectiveSpacing;
         }
     }
 
-    private static void MoveBookCenterToX(Transform book, float targetCenterX)
+    private void MoveBookCenterToCoordinate(Transform book, float targetCenter)
     {
-        if (!TryGetBookBounds(book, out Bounds bounds))
+        if (!TryGetProjectedBounds(book, shelfAxis, out float minimum, out float maximum))
         {
             return;
         }
 
-        Vector3 position = book.position;
-        position.x += targetCenterX - bounds.center.x;
-        book.position = position;
+        float currentCenter = (minimum + maximum) * 0.5f;
+        book.position += shelfAxis * (targetCenter - currentCenter);
     }
 
-    private static bool TryGetBookBounds(Transform book, out Bounds combinedBounds)
+    private static bool TryGetProjectedBounds(Transform book, Vector3 axis, out float minimum, out float maximum)
     {
         Renderer[] renderers = book.GetComponentsInChildren<Renderer>(true);
         if (renderers.Length == 0)
         {
-            combinedBounds = default;
+            minimum = maximum = 0f;
             return false;
         }
 
-        combinedBounds = renderers[0].bounds;
-        for (int index = 1; index < renderers.Length; index++)
+        minimum = float.PositiveInfinity;
+        maximum = float.NegativeInfinity;
+        foreach (Renderer renderer in renderers)
         {
-            combinedBounds.Encapsulate(renderers[index].bounds);
+            Bounds bounds = renderer.bounds;
+            for (int x = -1; x <= 1; x += 2)
+            for (int y = -1; y <= 1; y += 2)
+            for (int z = -1; z <= 1; z += 2)
+            {
+                Vector3 corner = bounds.center + Vector3.Scale(bounds.extents, new Vector3(x, y, z));
+                float projection = Vector3.Dot(corner, axis);
+                minimum = Mathf.Min(minimum, projection);
+                maximum = Mathf.Max(maximum, projection);
+            }
         }
 
         return true;
@@ -208,6 +226,31 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
         }
 
         return true;
+    }
+
+    private Vector3 ResolveShelfAxis()
+    {
+        // The book root may be rotated independently of the physical shelf. Read
+        // the authored row instead of assuming the root's local right is sideways.
+        float minX = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float minZ = float.PositiveInfinity;
+        float maxZ = float.NegativeInfinity;
+        foreach (Transform book in books)
+        {
+            if (!TryGetProjectedBounds(book, Vector3.right, out float left, out float right) ||
+                !TryGetProjectedBounds(book, Vector3.forward, out float near, out float far))
+            {
+                continue;
+            }
+
+            minX = Mathf.Min(minX, left);
+            maxX = Mathf.Max(maxX, right);
+            minZ = Mathf.Min(minZ, near);
+            maxZ = Mathf.Max(maxZ, far);
+        }
+
+        return maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
     }
 
     private static bool IsSolvedPermutation(IReadOnlyList<int> permutation)

@@ -408,7 +408,27 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
 
     private Vector3 GetShelfAxis()
     {
-        return booksRoot.right.normalized;
+        // The root transform can be rotated; infer the physical shelf direction
+        // from the authored horizontal row and never use the vertical Y axis.
+        float minX = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float minZ = float.PositiveInfinity;
+        float maxZ = float.NegativeInfinity;
+        foreach (Transform book in numberedBooks)
+        {
+            if (!TryGetProjectedBounds(book, Vector3.right, out float left, out float right) ||
+                !TryGetProjectedBounds(book, Vector3.forward, out float near, out float far))
+            {
+                continue;
+            }
+
+            minX = Mathf.Min(minX, left);
+            maxX = Mathf.Max(maxX, right);
+            minZ = Mathf.Min(minZ, near);
+            maxZ = Mathf.Max(maxZ, far);
+        }
+
+        return maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
     }
 
     private float GetBookCenterCoordinate(Transform book)
