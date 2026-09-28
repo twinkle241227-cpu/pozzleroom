@@ -48,6 +48,13 @@ public sealed class BookPuzzleViewController : MonoBehaviour
             return;
         }
 
+        // The photo wall owns the camera and left-click input as a modal view.
+        // Ignore this entrance even when its projected click area overlaps it.
+        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
+        {
+            return;
+        }
+
         if (isFocused)
         {
             if (Input.GetMouseButtonDown(1) &&

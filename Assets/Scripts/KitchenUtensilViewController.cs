@@ -60,6 +60,14 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
             return;
         }
 
+        // The photo wall is a modal puzzle view. Its photos can overlap this
+        // entrance collider in screen space, so never react to left-clicks
+        // while that view (or either of its transitions) owns the camera.
+        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
+        {
+            return;
+        }
+
         if (isFocused)
         {
             if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))

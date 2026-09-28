@@ -13,9 +13,13 @@ Shader "PhotoWall/HoverOutline"
         Pass
         {
             Name "Hover Outline"
-            Cull Off
+            // The outline object is a slightly enlarged copy of the photo.
+            // Rendering only its back faces lets the original photo occlude the
+            // centre, leaving a clean silhouette around the outside instead of
+            // painting the whole photograph with the outline colour.
+            Cull Front
             ZWrite Off
-            ZTest Less
+            ZTest LEqual
             Blend SrcAlpha OneMinusSrcAlpha
 
             HLSLPROGRAM

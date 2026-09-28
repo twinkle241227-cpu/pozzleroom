@@ -4,10 +4,17 @@ using UnityEngine.EventSystems;
 
 /// <summary>
 /// Focuses the main camera on a hand-authored photo-wall view when this object's
-/// collider is clicked. Right-click or Escape restores the room view.
+/// collider is clicked. Right-click restores the room view.
 /// </summary>
 public sealed class PhotoWallViewController : MonoBehaviour
 {
+    /// <summary>
+    /// True from the moment the photo-wall transition starts until the player
+    /// finishes leaving it. Other puzzle entrances use this as a modal input
+    /// lock so overlapping colliders cannot steal a photo click.
+    /// </summary>
+    public static bool IsPhotoWallInteractionActive { get; private set; }
+
     [Header("Scene References")]
     [SerializeField] private Camera targetCamera;
     [SerializeField] private Transform photoWallCameraTarget;
@@ -29,6 +36,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
     [Header("Entrance Hit Area")]
     [SerializeField, Min(0f)] private float entrancePadding = 0.001f;
     [SerializeField, Min(0.00001f)] private float entranceDepth = 0.001f;
+    [SerializeField, Range(0f, 1f)] private float minimumFrontFacingDot = 0.342f;
 
     private BoxCollider entranceCollider;
     private Vector3 previousCameraPosition;
@@ -39,6 +47,8 @@ public sealed class PhotoWallViewController : MonoBehaviour
     private PhotoWallShuffleController shuffleController;
     private PhotoWallPuzzleController puzzleController;
     private bool hasShuffled;
+    private int entranceNormalAxis;
+    private float entranceOutwardSign = 1f;
     public bool IsFocused => isFocused;
     public bool IsTransitioning => isTransitioning;
 
@@ -75,7 +85,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
 
         if (isFocused)
         {
-            if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+            if (Input.GetMouseButtonDown(1))
                 StartCoroutine(MoveCamera(previousCameraPosition, previousCameraRotation, false));
             return;
         }
@@ -84,7 +94,8 @@ public sealed class PhotoWallViewController : MonoBehaviour
             (ignorePointerOverUi && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
 
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit) && hit.collider == entranceCollider)
+        if (Physics.Raycast(ray, out RaycastHit hit) && hit.collider == entranceCollider &&
+            IsFrontEntranceClick(hit))
             EnterPhotoWallView(hit.normal);
     }
 
@@ -102,6 +113,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
 
         previousCameraPosition = targetCamera.transform.position;
         previousCameraRotation = targetCamera.transform.rotation;
+        IsPhotoWallInteractionActive = true;
         if (roomRotation != null)
         {
             previousRoomRotationEnabled = roomRotation.enabled;
@@ -119,6 +131,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
         {
             Debug.LogWarning("Photo-wall automatic framing found no renderers.", this);
             if (roomRotation != null) roomRotation.enabled = previousRoomRotationEnabled;
+            IsPhotoWallInteractionActive = false;
             return;
         }
 
@@ -173,8 +186,17 @@ public sealed class PhotoWallViewController : MonoBehaviour
         isTransitioning = false;
         if (!entering)
         {
+            IsPhotoWallInteractionActive = false;
             if (roomRotation != null) roomRotation.enabled = previousRoomRotationEnabled;
             if (entranceCollider != null) entranceCollider.enabled = true;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (isFocused || isTransitioning)
+        {
+            IsPhotoWallInteractionActive = false;
         }
     }
 
@@ -191,19 +213,39 @@ public sealed class PhotoWallViewController : MonoBehaviour
 
         Vector3 size = maximum - minimum;
         Vector3 localCenter = (minimum + maximum) * 0.5f;
-        int normalAxis = GetSmallestAxis(size);
-        float cameraCoordinate = GetAxis(transform.InverseTransformPoint(targetCamera.transform.position), normalAxis);
-        float wallCoordinate = GetAxis(localCenter, normalAxis);
-        float outwardSign = cameraCoordinate >= wallCoordinate ? 1f : -1f;
-        float outwardSurface = outwardSign > 0f ? GetAxis(maximum, normalAxis) : GetAxis(minimum, normalAxis);
+        entranceNormalAxis = GetSmallestAxis(size);
+        float cameraCoordinate = GetAxis(transform.InverseTransformPoint(targetCamera.transform.position), entranceNormalAxis);
+        float wallCoordinate = GetAxis(localCenter, entranceNormalAxis);
+        entranceOutwardSign = cameraCoordinate >= wallCoordinate ? 1f : -1f;
+        float outwardSurface = entranceOutwardSign > 0f
+            ? GetAxis(maximum, entranceNormalAxis)
+            : GetAxis(minimum, entranceNormalAxis);
 
-        SetAxis(ref size, normalAxis, entranceDepth);
-        SetAxis(ref localCenter, normalAxis, outwardSurface + outwardSign * entranceDepth * 0.5f);
+        SetAxis(ref size, entranceNormalAxis, entranceDepth);
+        SetAxis(ref localCenter, entranceNormalAxis, outwardSurface + entranceOutwardSign * entranceDepth * 0.5f);
         size += new Vector3(entrancePadding * 2f, entrancePadding * 2f, entrancePadding * 2f);
-        SetAxis(ref size, normalAxis, entranceDepth);
+        SetAxis(ref size, entranceNormalAxis, entranceDepth);
 
         entranceCollider.center = localCenter;
         entranceCollider.size = size;
+    }
+
+    private bool IsFrontEntranceClick(RaycastHit hit)
+    {
+        Vector3 localNormal = entranceNormalAxis == 0 ? Vector3.right :
+            entranceNormalAxis == 1 ? Vector3.up : Vector3.forward;
+        Vector3 frontNormal = transform.TransformDirection(localNormal * entranceOutwardSign).normalized;
+        Vector3 wallToCamera = targetCamera.transform.position - hit.point;
+        if (wallToCamera.sqrMagnitude < 0.000001f)
+        {
+            return false;
+        }
+
+        // Reject both the thin collider's side faces and strongly oblique room
+        // views. The player must rotate the room until the photo face is visible.
+        float faceAlignment = Vector3.Dot(hit.normal.normalized, frontNormal);
+        float viewAlignment = Vector3.Dot(wallToCamera.normalized, frontNormal);
+        return faceAlignment >= 0.9f && viewAlignment >= minimumFrontFacingDot;
     }
 
     private Transform FindPhotoWallRoot()
