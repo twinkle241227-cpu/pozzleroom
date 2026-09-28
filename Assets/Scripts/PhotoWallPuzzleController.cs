@@ -30,6 +30,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     private PinState originalPin;
     private int originalSlot;
     private Vector3 pointerToPhotoOffset;
+    private float draggedPhotoPlaneOffset;
     private bool initialized;
     private bool isSolved;
     private bool areAllPhotosLocked;
@@ -47,6 +48,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         public PinState CurrentPin;
         public int CurrentSlot;
         public bool IsCorrect;
+        public float WallPlaneOffset;
         public Vector3 SnappedBasePosition;
         public bool HasSnappedBasePosition;
     }
@@ -63,6 +65,10 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         ActiveInstance = this;
         targetCamera = Camera.main;
         viewController = GetComponentInChildren<PhotoWallViewController>(true);
+        if (GetComponent<PhotoWallDragMovementDebug>() == null)
+        {
+            gameObject.AddComponent<PhotoWallDragMovementDebug>();
+        }
     }
 
     private void OnDestroy()
@@ -171,12 +177,18 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         draggedPhoto.Transform.rotation = draggedPhoto.CorrectRotation;
         if (originalPin != null && shuffleController.TryGetPhotoSlotPosition(draggedPhoto.Transform, originalPin.Transform, originalSlot, out Vector3 correctedPosition))
         {
-            draggedPhoto.Transform.position = correctedPosition;
+            draggedPhoto.Transform.position = ConstrainToPhotoWallPlane(correctedPosition, draggedPhoto.WallPlaneOffset);
         }
+
+        // Keep a photo's intentional layer depth, but never let drag input add
+        // a new component along the photo-wall normal.
+        draggedPhotoPlaneOffset = photoWallPlane.GetDistanceToPoint(draggedPhoto.Transform.position);
 
         if (TryGetPointerOnWall(out Vector3 pointerPosition))
         {
-            pointerToPhotoOffset = draggedPhoto.Transform.position - pointerPosition;
+            pointerToPhotoOffset = Vector3.ProjectOnPlane(
+                draggedPhoto.Transform.position - pointerPosition,
+                photoWallPlane.normal);
         }
         else
         {
@@ -194,7 +206,8 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             return;
         }
 
-        draggedPhoto.Transform.position = pointerPosition + pointerToPhotoOffset;
+        Vector3 candidatePosition = pointerPosition + pointerToPhotoOffset;
+        draggedPhoto.Transform.position = ConstrainToPhotoWallPlane(candidatePosition, draggedPhotoPlaneOffset);
         draggedPhoto.Transform.rotation = draggedPhoto.CorrectRotation;
     }
 
@@ -244,11 +257,11 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         if (shuffleController != null &&
             shuffleController.TryGetPhotoSlotPosition(draggedPhoto.Transform, pin.Transform, slot, out Vector3 position))
         {
-            draggedPhoto.Transform.position = position;
+            draggedPhoto.Transform.position = ConstrainToPhotoWallPlane(position, draggedPhoto.WallPlaneOffset);
         }
         else
         {
-            draggedPhoto.Transform.position = pin.Transform.position;
+            draggedPhoto.Transform.position = ConstrainToPhotoWallPlane(pin.Transform.position, draggedPhoto.WallPlaneOffset);
         }
 
         draggedPhoto.SnappedBasePosition = draggedPhoto.Transform.position;
@@ -264,7 +277,8 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             Letter = TryGetLetter(photoTransform.name, "photo", out char letter) ? letter : '\0',
             CorrectRotation = photoTransform.rotation,
             CurrentPin = null,
-            CurrentSlot = -1
+            CurrentSlot = -1,
+            WallPlaneOffset = 0f
         };
         originalPin = null;
         originalSlot = -1;
@@ -272,10 +286,14 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         // The wall is seen face-on while playing this puzzle. A plane parallel to
         // the camera view is a reliable fallback even if pin objects were renamed.
         photoWallPlane = new Plane(-targetCamera.transform.forward, photoTransform.position);
+        draggedPhoto.WallPlaneOffset = photoWallPlane.GetDistanceToPoint(photoTransform.position);
+        draggedPhotoPlaneOffset = draggedPhoto.WallPlaneOffset;
         pointerToPhotoOffset = Vector3.zero;
         if (TryGetPointerOnWall(out Vector3 pointerPosition))
         {
-            pointerToPhotoOffset = photoTransform.position - pointerPosition;
+            pointerToPhotoOffset = Vector3.ProjectOnPlane(
+                photoTransform.position - pointerPosition,
+                photoWallPlane.normal);
         }
 
         PhotoHoverOutline.SetHighlighted(null);
@@ -290,7 +308,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         photo.Transform.rotation = photo.CorrectRotation;
         if (shuffleController.TryGetPhotoSlotPosition(photo.Transform, pin.Transform, slot, out Vector3 position))
         {
-            photo.Transform.position = position;
+            photo.Transform.position = ConstrainToPhotoWallPlane(position, photo.WallPlaneOffset);
         }
 
         photo.SnappedBasePosition = photo.Transform.position;
@@ -518,6 +536,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
                 CorrectRotation = correctRotation,
                 CurrentPin = nearest,
                 CurrentSlot = slot,
+                WallPlaneOffset = photoWallPlane.GetDistanceToPoint(candidate.position),
                 SnappedBasePosition = candidate.position,
                 HasSnappedBasePosition = true
             };
@@ -547,6 +566,12 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             spread.y <= spread.z ? Vector3.up : Vector3.forward;
         Vector3 worldNormal = discoveredWallRoot.TransformDirection(localNormal);
         return Vector3.Dot(worldNormal, targetCamera.transform.position - discoveredWallRoot.position) >= 0f ? worldNormal : -worldNormal;
+    }
+
+    private Vector3 ConstrainToPhotoWallPlane(Vector3 position, float planeOffset)
+    {
+        float currentOffset = photoWallPlane.GetDistanceToPoint(position);
+        return position - photoWallPlane.normal * (currentOffset - planeOffset);
     }
 
     private PinState FindClosestPin(Vector3 position)
