@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 /// <summary>
 /// Drag-and-drop puzzle for the wine display. Target names ending in
-/// "correct" determine the final locations. Each "*start" item maps to the
-/// same-name "*correct" item after its suffix is removed.
+/// "correct" determine the final slots. Numbered items use their same-name
+/// start marker initially, but may finish in any free slot of the same type.
 /// </summary>
 public sealed class WineRotationPuzzleController : MonoBehaviour
 {
@@ -24,6 +25,7 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         public Vector3 CorrectVisualCenter;
         public Quaternion CorrectWorldRotation;
         public Vector3 CorrectLocalScale;
+        public Vector3 VisualLocalAxis;
         public bool IsOccupied;
         public bool IsLocked;
     }
@@ -33,7 +35,6 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
     [SerializeField, Min(0.1f)] private float rotationStepDegrees = 15f;
     [SerializeField, Range(0f, 15f)] private float rotationToleranceDegrees = 7.5f;
     [SerializeField, Min(1f)] private float minimumDragPixels = 6f;
-    [SerializeField, Min(0.01f)] private float minimumDragWorldDistance = 0.12f;
     [SerializeField, Min(0.01f)] private float supportThickness = 0.08f;
     [SerializeField, Min(0f)] private float supportPadding = 0.12f;
     [SerializeField] private List<WineItemState> items = new List<WineItemState>();
@@ -60,6 +61,55 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
     public bool HasCapturedCorrectLayout => hasCapturedCorrectLayout;
     public int ItemCount => items.Count;
     public bool IsComplete => isComplete;
+
+    /// <summary>Builds a read-only placement report for WineSnapPlacementDebug.</summary>
+    public bool TryBuildSnapDebugReport(Transform hitTransform, string phase, out Transform playableItem, out string report)
+    {
+        WineItemState source = null;
+        foreach (WineItemState item in items)
+        {
+            if (item.PlayableItem != null &&
+                (hitTransform == item.PlayableItem || hitTransform.IsChildOf(item.PlayableItem)))
+            {
+                source = item;
+                break;
+            }
+        }
+
+        if (source == null)
+        {
+            playableItem = null;
+            report = null;
+            return false;
+        }
+
+        playableItem = source.PlayableItem;
+        Vector3 sourceCenter = GetVisualCenter(source.PlayableItem);
+        Bounds sourceBounds = GetVisualBounds(source.PlayableItem);
+        StringBuilder builder = new StringBuilder();
+        builder.Append($"[WineSnapDebug] {phase}; source={source.PlayableItem.name}; pair={source.PairId}; type={source.ItemType}; ");
+        builder.Append($"locked={source.IsLocked}; rootPos={source.PlayableItem.position:F5}; visualCenter={sourceCenter:F5}; ");
+        builder.Append($"rotation={source.PlayableItem.eulerAngles:F2}; localAxis={source.VisualLocalAxis:F2}; bounds={sourceBounds.size:F5}");
+
+        foreach (WineItemState candidate in items)
+        {
+            if (!string.Equals(candidate.ItemType, source.ItemType, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            Vector3 delta = sourceCenter - candidate.CorrectVisualCenter;
+            float depthError = Mathf.Abs(Vector3.Dot(delta, interactionPlaneNormal));
+            float planeError = Vector3.ProjectOnPlane(delta, interactionPlaneNormal).magnitude;
+            float angleError = GetScreenAngleError(source, candidate.CorrectWorldRotation);
+            builder.Append($" || slot={candidate.PairId}; occupied={candidate.IsOccupied}; targetRoot={candidate.CorrectWorldPosition:F5}; ");
+            builder.Append($"targetCenter={candidate.CorrectVisualCenter:F5}; centerDelta={delta:F5}; ");
+            builder.Append($"planeError={planeError:F5}; depthError={depthError:F5}; angleError={angleError:F2}");
+        }
+
+        report = builder.ToString();
+        return true;
+    }
 
     /// <summary>Read-only access for WineCorrectPoseDebug.</summary>
     public bool TryGetCorrectPoseForDebug(
@@ -188,7 +238,8 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
                 CorrectWorldPosition = correctEntry.Value.position,
                 CorrectVisualCenter = GetVisualCenter(correctEntry.Value),
                 CorrectWorldRotation = correctEntry.Value.rotation,
-                CorrectLocalScale = correctEntry.Value.localScale
+                CorrectLocalScale = correctEntry.Value.localScale,
+                VisualLocalAxis = GetLongestVisualLocalAxis(correctEntry.Value)
             });
 
             Debug.Log($"[WineRotationPuzzle] Recorded '{correctEntry.Key}': initial=" +
@@ -200,8 +251,8 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
 
         ConfigureInteractionPlaneFromCorrectPoses();
         hasCapturedCorrectLayout = items.Count > 0;
-        Debug.Log($"[WineRotationPuzzle] Recorded {items.Count} correct layouts from '*correct' objects; " +
-                  $"unmatched initial items: {unmatchedCorrectItems}. Each start item matches its same-name correct item.", this);
+        Debug.Log($"[WineRotationPuzzle] Recorded {items.Count} correct slots from '*correct' objects; " +
+                  $"unmatched initial items: {unmatchedCorrectItems}. Final placement accepts any free slot of the same type.", this);
     }
 
     private void ConfigureInteractionPlaneFromCorrectPoses()
@@ -463,7 +514,24 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         return combinedBounds.center;
     }
 
-    private float GetScreenAngleError(Transform source, Quaternion targetRotation)
+    private static Bounds GetVisualBounds(Transform item)
+    {
+        Renderer[] renderers = item.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            return new Bounds(item.position, Vector3.zero);
+        }
+
+        Bounds combinedBounds = renderers[0].bounds;
+        for (int index = 1; index < renderers.Length; index++)
+        {
+            combinedBounds.Encapsulate(renderers[index].bounds);
+        }
+
+        return combinedBounds;
+    }
+
+    private float GetScreenAngleError(WineItemState source, Quaternion targetRotation)
     {
         if (targetCamera == null)
         {
@@ -471,20 +539,60 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         }
 
         Vector3 viewNormal = targetCamera.transform.forward;
-        Vector3 targetDirection = GetDirectionInViewPlane(targetRotation, viewNormal);
-        Vector3 sourceDirection = GetDirectionInViewPlane(source.rotation, viewNormal);
+        Vector3 targetDirection = GetDirectionInViewPlane(targetRotation, source.VisualLocalAxis, viewNormal);
+        Vector3 sourceDirection = GetDirectionInViewPlane(source.PlayableItem.rotation, source.VisualLocalAxis, viewNormal);
         return Mathf.Abs(Vector3.SignedAngle(targetDirection, sourceDirection, viewNormal));
     }
 
-    private static Vector3 GetDirectionInViewPlane(Quaternion rotation, Vector3 viewNormal)
+    private static Vector3 GetDirectionInViewPlane(Quaternion rotation, Vector3 localAxis, Vector3 viewNormal)
     {
-        Vector3 direction = Vector3.ProjectOnPlane(rotation * Vector3.up, viewNormal);
+        Vector3 direction = Vector3.ProjectOnPlane(rotation * localAxis, viewNormal);
         if (direction.sqrMagnitude < 0.0001f)
         {
-            direction = Vector3.ProjectOnPlane(rotation * Vector3.right, viewNormal);
+            direction = Vector3.ProjectOnPlane(rotation * Vector3.up, viewNormal);
         }
 
         return direction.sqrMagnitude < 0.0001f ? Vector3.up : direction.normalized;
+    }
+
+    private static Vector3 GetLongestVisualLocalAxis(Transform item)
+    {
+        bool hasBounds = false;
+        Bounds localBounds = default;
+        foreach (MeshFilter filter in item.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter.sharedMesh == null)
+            {
+                continue;
+            }
+
+            Bounds meshBounds = filter.sharedMesh.bounds;
+            for (int x = -1; x <= 1; x += 2)
+            for (int y = -1; y <= 1; y += 2)
+            for (int z = -1; z <= 1; z += 2)
+            {
+                Vector3 meshCorner = meshBounds.center + Vector3.Scale(meshBounds.extents, new Vector3(x, y, z));
+                Vector3 itemLocalCorner = item.InverseTransformPoint(filter.transform.TransformPoint(meshCorner));
+                if (!hasBounds)
+                {
+                    localBounds = new Bounds(itemLocalCorner, Vector3.zero);
+                    hasBounds = true;
+                }
+                else
+                {
+                    localBounds.Encapsulate(itemLocalCorner);
+                }
+            }
+        }
+
+        if (!hasBounds)
+        {
+            return Vector3.up;
+        }
+
+        Vector3 size = localBounds.size;
+        if (size.x >= size.y && size.x >= size.z) return Vector3.right;
+        return size.y >= size.z ? Vector3.up : Vector3.forward;
     }
 
     private static void SetRenderersVisible(Transform item, bool visible)
@@ -566,6 +674,12 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
             return;
         }
 
+        // Crossing the pointer threshold is enough to count as a deliberate
+        // drag. Some shuffled items begin very close to another compatible
+        // slot, so requiring a large world-space displacement made those
+        // otherwise valid placements impossible to confirm.
+        dragMoved = true;
+
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
         if (dragPlane.Raycast(ray, out float enterDistance))
         {
@@ -576,12 +690,6 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
             nextPosition = Vector3.ProjectOnPlane(nextPosition - dragPlanePoint, interactionPlaneNormal) + dragPlanePoint;
             draggedItem.PlayableItem.position = nextPosition;
 
-            // 鼠标轻微抖动不应被当作一次放置：只有物体本身真正移动到阈值外，
-            // 松开时才允许继续执行目标吸附与锁定逻辑。
-            if (Vector3.Distance(nextPosition, dragStartWorldPosition) >= minimumDragWorldDistance)
-            {
-                dragMoved = true;
-            }
         }
     }
 
@@ -599,17 +707,19 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         WineItemState target = FindNearestFreeTarget(draggedItem);
         if (target != null)
         {
-            // Return the same direct correct model to its recorded target
-            // pose; there is no start-model/correct-model swap.
-            draggedItem.PlayableItem.SetPositionAndRotation(target.CorrectWorldPosition, target.CorrectWorldRotation);
+            // A target represents an authored slot, not ownership by one
+            // numbered model. Any item of the same visual type may occupy it.
+            draggedItem.PlayableItem.rotation = target.CorrectWorldRotation;
             draggedItem.PlayableItem.localScale = target.CorrectLocalScale;
-            target.CorrectItem.gameObject.SetActive(true);
-            SetRenderersVisible(target.CorrectItem, true);
-            SetCollidersEnabled(target.CorrectItem, false);
+            Vector3 snappedVisualCenter = GetVisualCenter(draggedItem.PlayableItem);
+            draggedItem.PlayableItem.position += target.CorrectVisualCenter - snappedVisualCenter;
+            draggedItem.PlayableItem.gameObject.SetActive(true);
+            SetRenderersVisible(draggedItem.PlayableItem, true);
+            SetCollidersEnabled(draggedItem.PlayableItem, false);
             target.IsOccupied = true;
             draggedItem.IsLocked = true;
-            LockCorrectItem(target.CorrectItem);
-            Debug.Log($"[WineRotationPuzzle] Locked direct model {draggedItem.PlayableItem.name} at its recorded correct pose ({target.PairId}).", this);
+            LockCorrectItem(draggedItem.PlayableItem);
+            Debug.Log($"[WineRotationPuzzle] Locked {draggedItem.PlayableItem.name} in compatible {target.ItemType} slot {target.PairId}.", this);
         }
         else
         {
@@ -639,17 +749,17 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         foreach (WineItemState candidate in items)
         {
             if (candidate.IsOccupied ||
-                !string.Equals(candidate.PairId, source.PairId, StringComparison.OrdinalIgnoreCase))
+                !string.Equals(candidate.ItemType, source.ItemType, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
             // Compare position inside the display plane separately from depth,
             // then compare only the visual in-screen rotation angle.
-            Vector3 positionDelta = source.PlayableItem.position - candidate.CorrectWorldPosition;
+            Vector3 positionDelta = GetVisualCenter(source.PlayableItem) - candidate.CorrectVisualCenter;
             float depthError = Mathf.Abs(Vector3.Dot(positionDelta, interactionPlaneNormal));
             float distance = Vector3.ProjectOnPlane(positionDelta, interactionPlaneNormal).magnitude;
-            float angleError = GetScreenAngleError(source.PlayableItem, candidate.CorrectWorldRotation);
+            float angleError = GetScreenAngleError(source, candidate.CorrectWorldRotation);
             if (distance < closestSameTypeDistance)
             {
                 closestSameType = candidate;
