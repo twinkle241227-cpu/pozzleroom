@@ -109,12 +109,16 @@ public sealed class PipeRotationPuzzleController : MonoBehaviour
                 continue;
             }
 
-            // The pipe board faces along its local X axis. Negative local X
-            // is clockwise from its authored front view. Local space keeps
-            // the behavior correct if the entire room is turned.
-            tile.localRotation *= Quaternion.AngleAxis(-rotationStepDegrees, Vector3.right);
+            // Rotate every tile around the board's shared world-space normal.
+            // This is independent of the imported model's inconsistent local
+            // axes and remains correct when the whole room is rotated.
+            Vector3 lockedWorldPosition = tile.position;
+            Vector3 wallNormal = transform.forward.normalized;
+            Quaternion rotationStep = Quaternion.AngleAxis(-rotationStepDegrees, wallNormal);
+            tile.rotation = rotationStep * tile.rotation;
+            tile.position = lockedWorldPosition;
             Physics.SyncTransforms();
-            Debug.Log($"[PipePuzzle] Rotated tile '{tile.name}' clockwise by {rotationStepDegrees:0}° on local Rotation X.", tile);
+            Debug.Log($"[PipePuzzle] Rotated tile '{tile.name}' clockwise by {rotationStepDegrees:0}° around the PipeMove wall normal {wallNormal:F3}.", tile);
             return;
         }
     }
