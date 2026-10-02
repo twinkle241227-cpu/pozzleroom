@@ -13,6 +13,7 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
     [Header("Scene References")]
     [SerializeField] private Camera targetCamera;
     [SerializeField] private Transform booksRoot;
+    [SerializeField] private Transform slotsRoot;
     [SerializeField] private BookPuzzleViewController viewController;
 
     [Header("Drag Feel")]
@@ -56,6 +57,10 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
         }
 
         CollectBooks();
+        if (slotsRoot == null && booksRoot != null && booksRoot.parent != null)
+        {
+            slotsRoot = booksRoot.parent.Find("Slots");
+        }
     }
 
     private void Update()
@@ -171,25 +176,17 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
     private void BuildPreviewTargets()
     {
         previewTargets.Clear();
-        float cursor = layoutLeftEdge;
-        float draggedWidth = GetBookWidth(draggedBook);
 
         for (int position = 0; position <= remainingBooks.Count; position++)
         {
-            if (position == insertionIndex)
-            {
-                cursor += draggedWidth + effectiveSpacing;
-            }
-
             if (position >= remainingBooks.Count)
             {
                 continue;
             }
 
             Transform book = remainingBooks[position];
-            float width = GetBookWidth(book);
-            previewTargets[book] = cursor + width * 0.5f;
-            cursor += width + effectiveSpacing;
+            int slotIndex = position >= insertionIndex ? position + 1 : position;
+            previewTargets[book] = GetSlotCoordinate(slotIndex);
         }
     }
 
@@ -271,15 +268,13 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
     private Dictionary<Transform, Vector3> BuildDestinationPositions(IReadOnlyList<Transform> order)
     {
         Dictionary<Transform, Vector3> result = new Dictionary<Transform, Vector3>();
-        float cursor = layoutLeftEdge;
 
-        foreach (Transform book in order)
+        for (int index = 0; index < order.Count; index++)
         {
-            float width = GetBookWidth(book);
-            float targetCenter = cursor + width * 0.5f;
+            Transform book = order[index];
+            float targetCenter = GetSlotCoordinate(index);
             float currentCenter = GetBookCenterCoordinate(book);
             result[book] = book.position + shelfAxis * (targetCenter - currentCenter);
-            cursor += width + effectiveSpacing;
         }
 
         return result;
@@ -408,27 +403,30 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
 
     private Vector3 GetShelfAxis()
     {
-        // The root transform can be rotated; infer the physical shelf direction
-        // from the authored horizontal row and never use the vertical Y axis.
+        // Measure the authored row in the book-root's LOCAL space, then turn
+        // that axis back into world space. Using Vector3.right/forward here
+        // made the books slide out of the cabinet after RoomPivot rotated the
+        // entire room, because those are fixed world axes.
         float minX = float.PositiveInfinity;
         float maxX = float.NegativeInfinity;
         float minZ = float.PositiveInfinity;
         float maxZ = float.NegativeInfinity;
         foreach (Transform book in numberedBooks)
         {
-            if (!TryGetProjectedBounds(book, Vector3.right, out float left, out float right) ||
-                !TryGetProjectedBounds(book, Vector3.forward, out float near, out float far))
+            if (book == null)
             {
                 continue;
             }
 
-            minX = Mathf.Min(minX, left);
-            maxX = Mathf.Max(maxX, right);
-            minZ = Mathf.Min(minZ, near);
-            maxZ = Mathf.Max(maxZ, far);
+            Vector3 localCenter = booksRoot.InverseTransformPoint(GetBookBounds(book).center);
+            minX = Mathf.Min(minX, localCenter.x);
+            maxX = Mathf.Max(maxX, localCenter.x);
+            minZ = Mathf.Min(minZ, localCenter.z);
+            maxZ = Mathf.Max(maxZ, localCenter.z);
         }
 
-        return maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
+        Vector3 localShelfAxis = maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
+        return booksRoot.TransformDirection(localShelfAxis).normalized;
     }
 
     private float GetBookCenterCoordinate(Transform book)
@@ -446,6 +444,22 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
     {
         float currentCoordinate = GetBookCenterCoordinate(book);
         book.position += shelfAxis * ((targetCoordinate - currentCoordinate) * blend);
+    }
+
+    private float GetSlotCoordinate(int slotIndex)
+    {
+        if (slotsRoot != null)
+        {
+            Transform slot = slotsRoot.Find("Slot" + (slotIndex + 1).ToString("00"));
+            if (slot != null)
+            {
+                return Vector3.Dot(slot.position, shelfAxis);
+            }
+        }
+
+        // Scene fallback only: retain the former sequential calculation if a
+        // project is missing its authored Slots hierarchy.
+        return layoutLeftEdge + Mathf.Max(0, slotIndex) * effectiveSpacing;
     }
 
     private static Bounds GetBookBounds(Transform book)
@@ -487,6 +501,7 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
 
         return true;
     }
+
 
     private bool IsCorrectOrder(IReadOnlyList<Transform> order)
     {

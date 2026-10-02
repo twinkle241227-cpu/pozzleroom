@@ -159,7 +159,10 @@ public sealed class UtensilPuzzleController : MonoBehaviour
         FreezeAllRigidbodies(item);
         if (utensil.HasBeenDropped)
         {
-            item.rotation = utensil.CorrectWorldRotation;
+            // The room can rotate after this puzzle was initialized.  Read the
+            // target's current world rotation instead of restoring the old
+            // world-space value captured at startup.
+            item.rotation = GetCurrentCorrectWorldRotation(utensil);
         }
 
         // All correct targets are on the utensil board. Dragging on this plane
@@ -209,7 +212,9 @@ public sealed class UtensilPuzzleController : MonoBehaviour
             float distanceToTarget = Vector3.Distance(heldUtensil.Item.position, heldUtensil.Target.position);
             if (distanceToTarget <= targetSnapDistance)
             {
-                heldUtensil.Item.SetPositionAndRotation(heldUtensil.Target.position, heldUtensil.CorrectWorldRotation);
+                heldUtensil.Item.SetPositionAndRotation(
+                    GetCurrentCorrectWorldPosition(heldUtensil),
+                    GetCurrentCorrectWorldRotation(heldUtensil));
                 LockUtensil(heldUtensil);
             }
             else
@@ -395,7 +400,7 @@ public sealed class UtensilPuzzleController : MonoBehaviour
         {
             float x = UnityEngine.Random.Range(zone.min.x + scatterPadding, zone.max.x - scatterPadding);
             float z = UnityEngine.Random.Range(zone.min.z + scatterPadding, zone.max.z - scatterPadding);
-            Quaternion rotation = Quaternion.AngleAxis(UnityEngine.Random.Range(randomYawRange.x, randomYawRange.y), Vector3.up) * utensil.CorrectWorldRotation;
+            Quaternion rotation = Quaternion.AngleAxis(UnityEngine.Random.Range(randomYawRange.x, randomYawRange.y), Vector3.up) * GetCurrentCorrectWorldRotation(utensil);
 
             item.SetPositionAndRotation(new Vector3(x, zone.max.y, z), rotation);
             if (!TryGetCombinedBounds(item, out Bounds bounds))
@@ -424,7 +429,7 @@ public sealed class UtensilPuzzleController : MonoBehaviour
         {
             float x = UnityEngine.Random.Range(zone.min.x + scatterPadding, zone.max.x - scatterPadding);
             float z = UnityEngine.Random.Range(zone.min.z + scatterPadding, zone.max.z - scatterPadding);
-            Quaternion rotation = Quaternion.AngleAxis(UnityEngine.Random.Range(randomYawRange.x, randomYawRange.y), Vector3.up) * utensil.CorrectWorldRotation;
+            Quaternion rotation = Quaternion.AngleAxis(UnityEngine.Random.Range(randomYawRange.x, randomYawRange.y), Vector3.up) * GetCurrentCorrectWorldRotation(utensil);
 
             item.SetPositionAndRotation(new Vector3(x, zone.max.y, z), rotation);
             if (!TryGetCombinedBounds(item, out Bounds bounds))
@@ -448,7 +453,7 @@ public sealed class UtensilPuzzleController : MonoBehaviour
     {
         Transform item = utensil.Item;
         Vector3 position = new Vector3(zone.center.x, zone.max.y, zone.center.z);
-        item.SetPositionAndRotation(position, utensil.CorrectWorldRotation);
+        item.SetPositionAndRotation(position, GetCurrentCorrectWorldRotation(utensil));
 
         if (TryGetCombinedBounds(item, out Bounds bounds))
         {
@@ -484,6 +489,16 @@ public sealed class UtensilPuzzleController : MonoBehaviour
     private static float Footprint(Bounds bounds)
     {
         return bounds.size.x * bounds.size.z;
+    }
+
+    private static Vector3 GetCurrentCorrectWorldPosition(UtensilState utensil)
+    {
+        return utensil.Target != null ? utensil.Target.position : utensil.CorrectWorldPosition;
+    }
+
+    private static Quaternion GetCurrentCorrectWorldRotation(UtensilState utensil)
+    {
+        return utensil.Target != null ? utensil.Target.rotation : utensil.CorrectWorldRotation;
     }
 
     private void EnsureTargetRoot()

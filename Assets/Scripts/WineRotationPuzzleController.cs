@@ -24,6 +24,12 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         public Vector3 CorrectWorldPosition;
         public Vector3 CorrectVisualCenter;
         public Quaternion CorrectWorldRotation;
+        // The display can be rotated by RoomPivotDragController after Start.
+        // Keep the authored target in this display's local space as well, so
+        // its world pose stays valid after that room rotation.
+        public Vector3 CorrectLocalPosition;
+        public Vector3 CorrectVisualCenterLocal;
+        public Quaternion CorrectLocalRotation;
         public Vector3 CorrectLocalScale;
         public Vector3 VisualLocalAxis;
         public bool IsOccupied;
@@ -98,12 +104,15 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
                 continue;
             }
 
-            Vector3 delta = sourceCenter - candidate.CorrectVisualCenter;
+            Vector3 candidateCenter = GetCurrentCorrectVisualCenter(candidate);
+            Vector3 candidatePosition = GetCurrentCorrectWorldPosition(candidate);
+            Quaternion candidateRotation = GetCurrentCorrectWorldRotation(candidate);
+            Vector3 delta = sourceCenter - candidateCenter;
             float depthError = Mathf.Abs(Vector3.Dot(delta, interactionPlaneNormal));
             float planeError = Vector3.ProjectOnPlane(delta, interactionPlaneNormal).magnitude;
-            float angleError = GetScreenAngleError(source, candidate.CorrectWorldRotation);
-            builder.Append($" || slot={candidate.PairId}; occupied={candidate.IsOccupied}; targetRoot={candidate.CorrectWorldPosition:F5}; ");
-            builder.Append($"targetCenter={candidate.CorrectVisualCenter:F5}; centerDelta={delta:F5}; ");
+            float angleError = GetScreenAngleError(source, candidateRotation);
+            builder.Append($" || slot={candidate.PairId}; occupied={candidate.IsOccupied}; targetRoot={candidatePosition:F5}; ");
+            builder.Append($"targetCenter={candidateCenter:F5}; centerDelta={delta:F5}; ");
             builder.Append($"planeError={planeError:F5}; depthError={depthError:F5}; angleError={angleError:F2}");
         }
 
@@ -126,8 +135,8 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
             {
                 playableItem = item.PlayableItem;
                 pairId = item.PairId;
-                targetPosition = item.CorrectWorldPosition;
-                targetRotation = item.CorrectWorldRotation;
+                targetPosition = GetCurrentCorrectWorldPosition(item);
+                targetRotation = GetCurrentCorrectWorldRotation(item);
                 return true;
             }
         }
@@ -238,6 +247,9 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
                 CorrectWorldPosition = correctEntry.Value.position,
                 CorrectVisualCenter = GetVisualCenter(correctEntry.Value),
                 CorrectWorldRotation = correctEntry.Value.rotation,
+                CorrectLocalPosition = transform.InverseTransformPoint(correctEntry.Value.position),
+                CorrectVisualCenterLocal = transform.InverseTransformPoint(GetVisualCenter(correctEntry.Value)),
+                CorrectLocalRotation = Quaternion.Inverse(transform.rotation) * correctEntry.Value.rotation,
                 CorrectLocalScale = correctEntry.Value.localScale,
                 VisualLocalAxis = GetLongestVisualLocalAxis(correctEntry.Value)
             });
@@ -262,12 +274,12 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
             return;
         }
 
-        Vector3 minimum = items[0].CorrectWorldPosition;
+        Vector3 minimum = GetCurrentCorrectWorldPosition(items[0]);
         Vector3 maximum = minimum;
         Vector3 sum = Vector3.zero;
         foreach (WineItemState item in items)
         {
-            Vector3 position = item.CorrectWorldPosition;
+            Vector3 position = GetCurrentCorrectWorldPosition(item);
             minimum = Vector3.Min(minimum, position);
             maximum = Vector3.Max(maximum, position);
             sum += position;
@@ -291,6 +303,21 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
 
         interactionPlanePoint = sum / items.Count;
         Debug.Log($"[WineRotationPuzzle] Interaction plane: normal={interactionPlaneNormal}, point={interactionPlanePoint}, targetSpan={span}.", this);
+    }
+
+    private Vector3 GetCurrentCorrectWorldPosition(WineItemState item)
+    {
+        return transform.TransformPoint(item.CorrectLocalPosition);
+    }
+
+    private Vector3 GetCurrentCorrectVisualCenter(WineItemState item)
+    {
+        return transform.TransformPoint(item.CorrectVisualCenterLocal);
+    }
+
+    private Quaternion GetCurrentCorrectWorldRotation(WineItemState item)
+    {
+        return transform.rotation * item.CorrectLocalRotation;
     }
 
     private void PreparePuzzle()
@@ -424,8 +451,8 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
             // pose supplies the depth of that plane, so it can never be
             // dragged through the display or out behind the cabinet.
             interactionPlaneNormal = targetCamera.transform.forward.normalized;
-            interactionPlanePoint = selected.CorrectWorldPosition;
-            dragPlanePoint = selected.CorrectWorldPosition;
+            interactionPlanePoint = GetCurrentCorrectWorldPosition(selected);
+            dragPlanePoint = interactionPlanePoint;
             dragPlane = new Plane(interactionPlaneNormal, dragPlanePoint);
             if (!dragPlane.Raycast(ray, out float enterDistance))
             {
@@ -709,10 +736,10 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
         {
             // A target represents an authored slot, not ownership by one
             // numbered model. Any item of the same visual type may occupy it.
-            draggedItem.PlayableItem.rotation = target.CorrectWorldRotation;
+            draggedItem.PlayableItem.rotation = GetCurrentCorrectWorldRotation(target);
             draggedItem.PlayableItem.localScale = target.CorrectLocalScale;
             Vector3 snappedVisualCenter = GetVisualCenter(draggedItem.PlayableItem);
-            draggedItem.PlayableItem.position += target.CorrectVisualCenter - snappedVisualCenter;
+            draggedItem.PlayableItem.position += GetCurrentCorrectVisualCenter(target) - snappedVisualCenter;
             draggedItem.PlayableItem.gameObject.SetActive(true);
             SetRenderersVisible(draggedItem.PlayableItem, true);
             SetCollidersEnabled(draggedItem.PlayableItem, false);
@@ -756,10 +783,10 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
 
             // Compare position inside the display plane separately from depth,
             // then compare only the visual in-screen rotation angle.
-            Vector3 positionDelta = GetVisualCenter(source.PlayableItem) - candidate.CorrectVisualCenter;
+            Vector3 positionDelta = GetVisualCenter(source.PlayableItem) - GetCurrentCorrectVisualCenter(candidate);
             float depthError = Mathf.Abs(Vector3.Dot(positionDelta, interactionPlaneNormal));
             float distance = Vector3.ProjectOnPlane(positionDelta, interactionPlaneNormal).magnitude;
-            float angleError = GetScreenAngleError(source, candidate.CorrectWorldRotation);
+            float angleError = GetScreenAngleError(source, GetCurrentCorrectWorldRotation(candidate));
             if (distance < closestSameTypeDistance)
             {
                 closestSameType = candidate;
@@ -790,8 +817,8 @@ public sealed class WineRotationPuzzleController : MonoBehaviour
                       $"plane error={closestSameTypeDistance:F3} / {positionTolerance:F3}, " +
                       $"locked Z offset={closestSameTypeDepthError:F3}, " +
                       $"screen angle error={closestSameTypeAngleError:F1}° / {rotationToleranceDegrees:F1}°. " +
-                      $"sourcePos={source.PlayableItem.position}, targetPos={closestSameType.CorrectWorldPosition}, " +
-                      $"sourceRot={source.PlayableItem.eulerAngles}, targetRot={closestSameType.CorrectWorldRotation.eulerAngles}.", this);
+                      $"sourcePos={source.PlayableItem.position}, targetPos={GetCurrentCorrectWorldPosition(closestSameType)}, " +
+                      $"sourceRot={source.PlayableItem.eulerAngles}, targetRot={GetCurrentCorrectWorldRotation(closestSameType).eulerAngles}.", this);
         }
 
         return nearest;

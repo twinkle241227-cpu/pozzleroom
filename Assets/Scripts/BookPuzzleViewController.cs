@@ -12,11 +12,12 @@ public sealed class BookPuzzleViewController : MonoBehaviour
     [SerializeField] private Camera targetCamera;
     [SerializeField] private Transform booksRoot;
     [SerializeField] private Transform cameraDirection;
+    [Tooltip("Only this collider, or a collider belonging to an individual book, can enter the book view.")]
+    [SerializeField] private Collider entranceCollider;
     [SerializeField] private RoomPivotDragController roomRotation;
     [SerializeField] private BookPuzzleInteractionController interactionController;
 
     [Header("Interaction")]
-    [SerializeField, Min(0f)] private float clickablePaddingPixels = 60f;
     [SerializeField] private bool ignorePointerOverUi = true;
 
     [Header("Front View")]
@@ -29,6 +30,8 @@ public sealed class BookPuzzleViewController : MonoBehaviour
     private bool previousRoomRotationEnabled;
     private bool isFocused;
     private bool isTransitioning;
+    private Quaternion cameraDirectionInBooksRoot;
+    private bool hasCameraDirectionInBooksRoot;
 
     public bool IsFocused => isFocused;
     public bool IsTransitioning => isTransitioning;
@@ -38,6 +41,27 @@ public sealed class BookPuzzleViewController : MonoBehaviour
         if (targetCamera == null)
         {
             targetCamera = Camera.main;
+        }
+
+        // The authored hotspot is a sibling of the Book root. Resolve it when
+        // this controller was attached at runtime, so it does not fall back to
+        // a broad screen-space bounds check.
+        if (entranceCollider == null && booksRoot != null && booksRoot.parent != null)
+        {
+            Transform hotspot = booksRoot.parent.Find("InteractionHotspot");
+            if (hotspot != null)
+            {
+                entranceCollider = hotspot.GetComponent<Collider>();
+            }
+        }
+
+        // CameraDirection may be authored outside BookPuzzleRoot. Store its
+        // orientation relative to the book group once, then rebuild it from
+        // the book group's current rotation when the room has been turned.
+        if (booksRoot != null && cameraDirection != null)
+        {
+            cameraDirectionInBooksRoot = Quaternion.Inverse(booksRoot.rotation) * cameraDirection.rotation;
+            hasCameraDirectionInBooksRoot = true;
         }
     }
 
@@ -84,55 +108,28 @@ public sealed class BookPuzzleViewController : MonoBehaviour
 
     private bool IsPointerOverBookArea(Vector3 pointerPosition)
     {
-        Renderer[] renderers = booksRoot.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
+        Ray ray = targetCamera.ScreenPointToRay(pointerPosition);
+        if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
         {
             return false;
         }
 
-        bool hasVisibleCorner = false;
-        Vector2 minimum = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-        Vector2 maximum = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-
-        foreach (Renderer renderer in renderers)
+        Transform hitTransform = hit.collider.transform;
+        if (entranceCollider != null &&
+            (hit.collider == entranceCollider || hitTransform.IsChildOf(entranceCollider.transform)))
         {
-            Bounds bounds = renderer.bounds;
-            Vector3 center = bounds.center;
-            Vector3 extents = bounds.extents;
-
-            for (int x = -1; x <= 1; x += 2)
-            {
-                for (int y = -1; y <= 1; y += 2)
-                {
-                    for (int z = -1; z <= 1; z += 2)
-                    {
-                        Vector3 corner = center + Vector3.Scale(extents, new Vector3(x, y, z));
-                        Vector3 screenPoint = targetCamera.WorldToScreenPoint(corner);
-                        if (screenPoint.z <= 0f)
-                        {
-                            continue;
-                        }
-
-                        hasVisibleCorner = true;
-                        minimum = Vector2.Min(minimum, screenPoint);
-                        maximum = Vector2.Max(maximum, screenPoint);
-                    }
-                }
-            }
+            return true;
         }
 
-        if (!hasVisibleCorner)
+        // A collider belonging to one of the immediate Book1...Book9 children
+        // is also an explicit, valid entrance target.
+        Transform candidate = hitTransform;
+        while (candidate != null && candidate.parent != booksRoot)
         {
-            return false;
+            candidate = candidate.parent;
         }
 
-        Rect clickableArea = Rect.MinMaxRect(
-            minimum.x - clickablePaddingPixels,
-            minimum.y - clickablePaddingPixels,
-            maximum.x + clickablePaddingPixels,
-            maximum.y + clickablePaddingPixels);
-
-        return clickableArea.Contains(pointerPosition);
+        return candidate != null && candidate.parent == booksRoot;
     }
 
     private void EnterFrontView()
@@ -151,7 +148,9 @@ public sealed class BookPuzzleViewController : MonoBehaviour
             roomRotation.enabled = false;
         }
 
-        Vector3 viewDirection = cameraDirection != null ? cameraDirection.forward : booksRoot.forward;
+        Vector3 viewDirection = hasCameraDirectionInBooksRoot
+            ? (booksRoot.rotation * cameraDirectionInBooksRoot) * Vector3.forward
+            : booksRoot.forward;
         if (viewDirection.sqrMagnitude < 0.0001f)
         {
             viewDirection = Vector3.forward;
