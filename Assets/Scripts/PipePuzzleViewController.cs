@@ -4,13 +4,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Opens the pipe assembly in a perspective front view when the player
-/// clicks a collider belonging to PipeMove or one of its pipe children.
+/// Moves the gameplay camera to the authored PipeCamera viewpoint when the
+/// player clicks PipeMove or one of its pipe children.
 /// </summary>
 public sealed class PipePuzzleViewController : MonoBehaviour
 {
     [SerializeField, Min(0f)] private float transitionDuration = 0.35f;
-    [SerializeField, Min(0f)] private float framingPadding = 0.15f;
+    [SerializeField] private Camera pipeCamera;
+    [SerializeField, Min(0.001f)] private float focusedNearClipPlane = 0.01f;
 
     private Camera targetCamera;
     private RoomPivotDragController roomRotation;
@@ -18,6 +19,9 @@ public sealed class PipePuzzleViewController : MonoBehaviour
     private Quaternion previousCameraRotation;
     private bool previousOrthographic;
     private float previousOrthographicSize;
+    private float previousFieldOfView;
+    private float previousNearClipPlane;
+    private float previousFarClipPlane;
     private bool previousRoomRotationEnabled;
     private bool isFocused;
     private bool isTransitioning;
@@ -38,11 +42,40 @@ public sealed class PipePuzzleViewController : MonoBehaviour
     {
         targetCamera = Camera.main;
         roomRotation = FindObjectOfType<RoomPivotDragController>();
+
+        if (pipeCamera == null)
+        {
+            Transform pipeCameraTransform = FindSceneTransform("PipeCamera");
+            if (pipeCameraTransform != null)
+            {
+                pipeCamera = pipeCameraTransform.GetComponent<Camera>();
+            }
+        }
+
+        // PipeCamera is an authored viewpoint, not a second live renderer.
+        // The main camera stays active so existing Camera.main raycasts work.
+        if (pipeCamera != null && pipeCamera != targetCamera)
+        {
+            pipeCamera.enabled = false;
+            AudioListener pipeListener = pipeCamera.GetComponent<AudioListener>();
+            if (pipeListener != null)
+            {
+                pipeListener.enabled = false;
+            }
+        }
     }
 
     private void Update()
     {
         if (targetCamera == null || isTransitioning)
+        {
+            return;
+        }
+
+        // The photo wall owns all pointer input while its focused view (or
+        // transition) is active. Without this modal lock, RaycastAll can see
+        // through photo colliders and trigger the pipe puzzle behind them.
+        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
         {
             return;
         }
@@ -64,22 +97,26 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         }
 
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        foreach (RaycastHit hit in Physics.RaycastAll(ray, Mathf.Infinity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
+        foreach (RaycastHit hit in Physics.RaycastAll(
+                     ray,
+                     Mathf.Infinity,
+                     Physics.DefaultRaycastLayers,
+                     QueryTriggerInteraction.Collide))
         {
             Transform hitTransform = hit.collider.transform;
             if (hitTransform == transform || hitTransform.IsChildOf(transform))
             {
-                EnterFrontView();
+                EnterPipeCameraView();
                 return;
             }
         }
     }
 
-    private void EnterFrontView()
+    private void EnterPipeCameraView()
     {
-        if (!TryGetPipeBounds(out Bounds bounds))
+        if (pipeCamera == null)
         {
-            Debug.LogWarning("[PipeView] No Renderer was found under PipeMove.", this);
+            Debug.LogWarning("[PipeView] Could not find the authored 'PipeCamera' viewpoint.", this);
             return;
         }
 
@@ -87,33 +124,30 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         previousCameraRotation = targetCamera.transform.rotation;
         previousOrthographic = targetCamera.orthographic;
         previousOrthographicSize = targetCamera.orthographicSize;
+        previousFieldOfView = targetCamera.fieldOfView;
+        previousNearClipPlane = targetCamera.nearClipPlane;
+        previousFarClipPlane = targetCamera.farClipPlane;
+
         if (roomRotation != null)
         {
             previousRoomRotationEnabled = roomRotation.enabled;
             roomRotation.enabled = false;
         }
 
-        // PipeMove is authored with its local forward axis pointing out of the
-        // pipe board. Re-evaluate it on every entry so room rotation is safe.
-        Vector3 outwardNormal = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
-        if (outwardNormal.sqrMagnitude < 0.0001f)
-        {
-            outwardNormal = targetCamera.transform.position - bounds.center;
-            outwardNormal = Vector3.ProjectOnPlane(outwardNormal, Vector3.up);
-        }
+        ApplyPipeCameraProjection();
+        StartCoroutine(MoveCamera(pipeCamera.transform.position, pipeCamera.transform.rotation, true));
+    }
 
-        outwardNormal.Normalize();
-        if (Vector3.Dot(outwardNormal, targetCamera.transform.position - bounds.center) < 0f)
-        {
-            outwardNormal = -outwardNormal;
-        }
-
-        Quaternion targetRotation = Quaternion.LookRotation(-outwardNormal, Vector3.up);
-        float distance = CalculatePerspectiveDistance(bounds, targetRotation);
-        Vector3 targetPosition = bounds.center + outwardNormal * distance;
-
-        targetCamera.orthographic = false;
-        StartCoroutine(MoveCamera(targetPosition, targetRotation, true));
+    private void ApplyPipeCameraProjection()
+    {
+        targetCamera.orthographic = pipeCamera.orthographic;
+        targetCamera.orthographicSize = pipeCamera.orthographicSize;
+        targetCamera.fieldOfView = pipeCamera.fieldOfView;
+        // PipeCamera sits very close to the wall and some fixed elbows protrude
+        // toward it. A conventional 0.3 near plane cuts those meshes away, so
+        // cap the focused view's near plane at a close-up-safe value.
+        targetCamera.nearClipPlane = Mathf.Min(pipeCamera.nearClipPlane, focusedNearClipPlane);
+        targetCamera.farClipPlane = pipeCamera.farClipPlane;
     }
 
     private IEnumerator MoveCamera(Vector3 destinationPosition, Quaternion destinationRotation, bool entering)
@@ -126,7 +160,9 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         while (elapsed < transitionDuration)
         {
             elapsed += Time.unscaledDeltaTime;
-            float progress = transitionDuration <= 0f ? 1f : Mathf.SmoothStep(0f, 1f, elapsed / transitionDuration);
+            float progress = transitionDuration <= 0f
+                ? 1f
+                : Mathf.SmoothStep(0f, 1f, elapsed / transitionDuration);
             targetCamera.transform.SetPositionAndRotation(
                 Vector3.Lerp(startPosition, destinationPosition, progress),
                 Quaternion.Slerp(startRotation, destinationRotation, progress));
@@ -141,47 +177,15 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         {
             targetCamera.orthographic = previousOrthographic;
             targetCamera.orthographicSize = previousOrthographicSize;
+            targetCamera.fieldOfView = previousFieldOfView;
+            targetCamera.nearClipPlane = previousNearClipPlane;
+            targetCamera.farClipPlane = previousFarClipPlane;
+
             if (roomRotation != null)
             {
                 roomRotation.enabled = previousRoomRotationEnabled;
             }
         }
-    }
-
-    private bool TryGetPipeBounds(out Bounds bounds)
-    {
-        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length == 0)
-        {
-            bounds = default;
-            return false;
-        }
-
-        bounds = renderers[0].bounds;
-        for (int index = 1; index < renderers.Length; index++)
-        {
-            bounds.Encapsulate(renderers[index].bounds);
-        }
-
-        return true;
-    }
-
-    private float CalculatePerspectiveDistance(Bounds bounds, Quaternion viewRotation)
-    {
-        float halfWidth = ProjectExtents(bounds.extents, viewRotation * Vector3.right);
-        float halfHeight = ProjectExtents(bounds.extents, viewRotation * Vector3.up);
-        float halfDepth = ProjectExtents(bounds.extents, viewRotation * Vector3.forward);
-        float verticalHalfFov = targetCamera.fieldOfView * 0.5f * Mathf.Deg2Rad;
-        float horizontalHalfFov = Mathf.Atan(Mathf.Tan(verticalHalfFov) * targetCamera.aspect);
-        float verticalDistance = halfHeight / Mathf.Max(0.001f, Mathf.Tan(verticalHalfFov));
-        float horizontalDistance = halfWidth / Mathf.Max(0.001f, Mathf.Tan(horizontalHalfFov));
-        return Mathf.Max(0.5f, verticalDistance, horizontalDistance) + halfDepth + framingPadding;
-    }
-
-    private static float ProjectExtents(Vector3 extents, Vector3 axis)
-    {
-        axis = new Vector3(Mathf.Abs(axis.x), Mathf.Abs(axis.y), Mathf.Abs(axis.z));
-        return Vector3.Dot(extents, axis);
     }
 
     private static Transform FindSceneTransform(string objectName)

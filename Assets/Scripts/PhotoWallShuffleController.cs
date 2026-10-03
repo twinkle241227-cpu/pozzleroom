@@ -21,6 +21,8 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
 
     private readonly List<Transform> pins = new List<Transform>();
     private readonly List<PhotoState> photos = new List<PhotoState>();
+    private readonly Dictionary<Transform, Quaternion> authoredRotationsRelativeToWall =
+        new Dictionary<Transform, Quaternion>();
     private int wallNormalAxis;
     private float pinPlaneCoordinate;
     private float photoPlaneOffset;
@@ -29,7 +31,7 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
     {
         public Transform Transform;
         public Vector3 InitialPosition;
-        public Quaternion InitialRotation;
+        public Quaternion InitialRotationRelativeToWall;
         public Vector3 PlanarPinOffset;
     }
 
@@ -86,7 +88,7 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
         {
             if (state.Transform == photo)
             {
-                rotation = state.InitialRotation;
+                rotation = photoWallRoot.rotation * state.InitialRotationRelativeToWall;
                 return true;
             }
         }
@@ -156,7 +158,10 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
             Vector3 localRotationAxis = GetAxisVector(wallNormalAxis);
             Quaternion localRotation = Quaternion.AngleAxis(angle, localRotationAxis);
             photo.Transform.position = slot.Pin.position + photoWallRoot.TransformVector(localRotation * localPositionOffset);
-            photo.Transform.rotation = Quaternion.AngleAxis(angle, photoWallRoot.TransformDirection(localRotationAxis)) * photo.InitialRotation;
+            Quaternion authoredWorldRotation = photoWallRoot.rotation * photo.InitialRotationRelativeToWall;
+            photo.Transform.rotation = Quaternion.AngleAxis(
+                angle,
+                photoWallRoot.TransformDirection(localRotationAxis)) * authoredWorldRotation;
         }
     }
 
@@ -166,7 +171,7 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
         foreach (PhotoState photo in photos)
         {
             photo.Transform.position = photo.InitialPosition;
-            photo.Transform.rotation = photo.InitialRotation;
+            photo.Transform.rotation = photoWallRoot.rotation * photo.InitialRotationRelativeToWall;
         }
     }
 
@@ -233,11 +238,20 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
             }
             hoverOutline.Configure(hoverOutlineColor, hoverOutlineWidth);
 
+            if (!authoredRotationsRelativeToWall.TryGetValue(candidate, out Quaternion authoredRotationRelativeToWall))
+            {
+                // Capture the authored pose relative to the wall exactly once.
+                // Re-collecting after the room rotates must not replace it with
+                // a stale world-space rotation.
+                authoredRotationRelativeToWall = Quaternion.Inverse(photoWallRoot.rotation) * candidate.rotation;
+                authoredRotationsRelativeToWall[candidate] = authoredRotationRelativeToWall;
+            }
+
             photos.Add(new PhotoState
             {
                 Transform = candidate,
                 InitialPosition = candidate.position,
-                InitialRotation = candidate.rotation,
+                InitialRotationRelativeToWall = authoredRotationRelativeToWall,
                 PlanarPinOffset = localPinOffset
             });
         }

@@ -14,7 +14,11 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
     public bool CanInteractWithUtensils => isFocused && !isTransitioning;
 
     [SerializeField, Min(0f)] private float transitionDuration = 0.4f;
-    [SerializeField, Min(0f)] private float framingPadding = 0.2f;
+    [Header("Front View Framing")]
+    [SerializeField, Min(0f)] private float framingPadding = 0.02f;
+    [SerializeField, Range(-1f, 1f)] private float horizontalFramingOffset = -0.03f;
+    [SerializeField, Range(-1f, 1f)] private float verticalFramingOffset;
+    [SerializeField, Range(0.5f, 1f)] private float framingScale = 1f;
 
     private Camera targetCamera;
     private Collider entranceCollider;
@@ -122,8 +126,9 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
         }
 
         Quaternion targetRotation = Quaternion.LookRotation(-outwardNormal, Vector3.up);
+        Vector3 targetCenter = CalculateFramingCenter(bounds, targetRotation);
         float distance = CalculateOrthographicViewDistance(bounds, targetRotation);
-        Vector3 targetPosition = bounds.center + outwardNormal * distance;
+        Vector3 targetPosition = targetCenter + outwardNormal * distance;
 
         // A frontal puzzle view reads best without perspective distortion.
         // Size is calculated from the wall bounds so all utensils remain visible.
@@ -184,7 +189,24 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
         Vector3 extents = bounds.extents;
         float halfWidth = ProjectExtents(extents, viewRotation * Vector3.right);
         float halfHeight = ProjectExtents(extents, viewRotation * Vector3.up);
-        return Mathf.Max(halfHeight, halfWidth / Mathf.Max(0.001f, targetCamera.aspect)) + framingPadding;
+        float fittedSize = Mathf.Max(halfHeight, halfWidth / Mathf.Max(0.001f, targetCamera.aspect));
+        return Mathf.Max(0.01f, (fittedSize + framingPadding) * framingScale);
+    }
+
+    private Vector3 CalculateFramingCenter(Bounds bounds, Quaternion viewRotation)
+    {
+        Vector3 extents = bounds.extents;
+        Vector3 viewRight = viewRotation * Vector3.right;
+        Vector3 viewUp = viewRotation * Vector3.up;
+        float halfWidth = ProjectExtents(extents, viewRight);
+        float halfHeight = ProjectExtents(extents, viewUp);
+
+        // The cabinet ends close to the right edge of the utensil board. Move
+        // the camera's framing center slightly into the room so the view keeps
+        // the authored wall geometry on screen instead of exposing the skybox.
+        return bounds.center +
+               viewRight * (halfWidth * horizontalFramingOffset) +
+               viewUp * (halfHeight * verticalFramingOffset);
     }
 
     private float CalculateOrthographicViewDistance(Bounds bounds, Quaternion viewRotation)

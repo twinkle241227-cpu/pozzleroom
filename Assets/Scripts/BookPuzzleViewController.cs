@@ -19,6 +19,8 @@ public sealed class BookPuzzleViewController : MonoBehaviour
 
     [Header("Interaction")]
     [SerializeField] private bool ignorePointerOverUi = true;
+    [SerializeField, Min(0f)] private float hotspotPadding = 0.03f;
+    [SerializeField, Min(0.001f)] private float hotspotMinimumDepth = 0.03f;
 
     [Header("Front View")]
     [SerializeField, Min(0f)] private float framingPadding = 0.25f;
@@ -44,14 +46,18 @@ public sealed class BookPuzzleViewController : MonoBehaviour
         }
 
         // The authored hotspot is a sibling of the Book root. Resolve it when
-        // this controller was attached at runtime, so it does not fall back to
-        // a broad screen-space bounds check.
+        // this controller was attached at runtime and create a fitted trigger
+        // if the hierarchy was moved without an authored Collider.
         if (entranceCollider == null && booksRoot != null && booksRoot.parent != null)
         {
             Transform hotspot = booksRoot.parent.Find("InteractionHotspot");
             if (hotspot != null)
             {
                 entranceCollider = hotspot.GetComponent<Collider>();
+                if (entranceCollider == null)
+                {
+                    entranceCollider = CreateFittedEntranceCollider(hotspot);
+                }
             }
         }
 
@@ -224,6 +230,36 @@ public sealed class BookPuzzleViewController : MonoBehaviour
         }
 
         return true;
+    }
+
+    private Collider CreateFittedEntranceCollider(Transform hotspot)
+    {
+        if (!TryGetBookBounds(out Bounds worldBounds))
+        {
+            Debug.LogWarning("[BookPuzzleView] Cannot create the entrance hotspot because no book Renderer was found.", this);
+            return null;
+        }
+
+        Vector3 localMinimum = new Vector3(float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity);
+        Vector3 localMaximum = new Vector3(float.NegativeInfinity, float.NegativeInfinity, float.NegativeInfinity);
+        for (int x = -1; x <= 1; x += 2)
+        for (int y = -1; y <= 1; y += 2)
+        for (int z = -1; z <= 1; z += 2)
+        {
+            Vector3 worldCorner = worldBounds.center + Vector3.Scale(worldBounds.extents, new Vector3(x, y, z));
+            Vector3 localCorner = hotspot.InverseTransformPoint(worldCorner);
+            localMinimum = Vector3.Min(localMinimum, localCorner);
+            localMaximum = Vector3.Max(localMaximum, localCorner);
+        }
+
+        BoxCollider hotspotCollider = hotspot.gameObject.AddComponent<BoxCollider>();
+        hotspotCollider.isTrigger = true;
+        hotspotCollider.center = (localMinimum + localMaximum) * 0.5f;
+        Vector3 localSize = localMaximum - localMinimum + Vector3.one * (hotspotPadding * 2f);
+        localSize.z = Mathf.Max(localSize.z, hotspotMinimumDepth);
+        hotspotCollider.size = localSize;
+        Debug.Log($"[BookPuzzleView] Created a fitted InteractionHotspot collider: center={hotspotCollider.center:F4}, size={hotspotCollider.size:F4}.", hotspot);
+        return hotspotCollider;
     }
 
     private float CalculateFitDistance(Bounds bounds, Quaternion viewRotation)

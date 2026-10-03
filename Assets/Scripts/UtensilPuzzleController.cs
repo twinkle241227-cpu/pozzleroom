@@ -157,13 +157,16 @@ public sealed class UtensilPuzzleController : MonoBehaviour
         Transform item = utensil.Item;
 
         FreezeAllRigidbodies(item);
-        if (utensil.HasBeenDropped)
-        {
-            // The room can rotate after this puzzle was initialized.  Read the
-            // target's current world rotation instead of restoring the old
-            // world-space value captured at startup.
-            item.rotation = GetCurrentCorrectWorldRotation(utensil);
-        }
+
+        // Scatter intentionally gives each utensil a temporary world-Y yaw so
+        // the tabletop arrangement looks untidy. Once the player picks an item
+        // up, remove that temporary yaw immediately and keep the authored pose
+        // for the complete drag. This prevents the visible rotation jump from
+        // happening only when the item finally snaps to its target.
+        //
+        // The room itself may have rotated since startup, so always read the
+        // target's current world rotation rather than the cached startup value.
+        item.rotation = GetCurrentCorrectWorldRotation(utensil);
 
         // All correct targets are on the utensil board. Dragging on this plane
         // lets an item move from the horizontal tabletop back onto that board.
@@ -181,10 +184,9 @@ public sealed class UtensilPuzzleController : MonoBehaviour
 
         isDragging = true;
         Physics.SyncTransforms();
-        string rotationMessage = utensil.HasBeenDropped
-            ? "restored its correct rotation after a drop"
-            : "preserved its initial scatter rotation";
-        Debug.Log($"[UtensilPuzzle] Picked {item.name}; {rotationMessage}; following the cursor on the board plane.", item);
+        Debug.Log(
+            $"[UtensilPuzzle] Picked {item.name}; restored its current target rotation; following the cursor on the board plane.",
+            item);
     }
 
     private void MoveHeldUtensilToCursor()

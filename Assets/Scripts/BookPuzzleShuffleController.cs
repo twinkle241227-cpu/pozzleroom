@@ -230,27 +230,56 @@ public sealed class BookPuzzleShuffleController : MonoBehaviour
 
     private Vector3 ResolveShelfAxis()
     {
-        // The book root may be rotated independently of the physical shelf. Read
-        // the authored row instead of assuming the root's local right is sideways.
+        // Measure the row in Book LOCAL space so moving or rotating the whole
+        // shelf cannot change which local axis owns the layout.
         float minX = float.PositiveInfinity;
         float maxX = float.NegativeInfinity;
         float minZ = float.PositiveInfinity;
         float maxZ = float.NegativeInfinity;
         foreach (Transform book in books)
         {
-            if (!TryGetProjectedBounds(book, Vector3.right, out float left, out float right) ||
-                !TryGetProjectedBounds(book, Vector3.forward, out float near, out float far))
-            {
-                continue;
-            }
-
-            minX = Mathf.Min(minX, left);
-            maxX = Mathf.Max(maxX, right);
-            minZ = Mathf.Min(minZ, near);
-            maxZ = Mathf.Max(maxZ, far);
+            Bounds bounds = GetCombinedBounds(book);
+            Vector3 localCenter = booksRoot.InverseTransformPoint(bounds.center);
+            minX = Mathf.Min(minX, localCenter.x);
+            maxX = Mathf.Max(maxX, localCenter.x);
+            minZ = Mathf.Min(minZ, localCenter.z);
+            maxZ = Mathf.Max(maxZ, localCenter.z);
         }
 
-        return maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
+        Vector3 localShelfAxis = maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
+        Vector3 worldShelfAxis = booksRoot.TransformDirection(localShelfAxis).normalized;
+
+        // Before shuffling, Book1..Book9 are the authored solved order. Use
+        // that order to give the otherwise unsigned measured axis a stable
+        // direction, then write Slot01..Slot09 along the same direction.
+        if (books.Count >= 2)
+        {
+            Vector3 firstCenter = GetCombinedBounds(books[0]).center;
+            Vector3 lastCenter = GetCombinedBounds(books[books.Count - 1]).center;
+            if (Vector3.Dot(lastCenter - firstCenter, worldShelfAxis) < 0f)
+            {
+                worldShelfAxis = -worldShelfAxis;
+            }
+        }
+
+        return worldShelfAxis;
+    }
+
+    private static Bounds GetCombinedBounds(Transform book)
+    {
+        Renderer[] renderers = book.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            return new Bounds(book.position, Vector3.zero);
+        }
+
+        Bounds bounds = renderers[0].bounds;
+        for (int index = 1; index < renderers.Length; index++)
+        {
+            bounds.Encapsulate(renderers[index].bounds);
+        }
+
+        return bounds;
     }
 
     private static bool IsSolvedPermutation(IReadOnlyList<int> permutation)

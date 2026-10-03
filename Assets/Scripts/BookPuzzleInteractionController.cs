@@ -426,7 +426,25 @@ public sealed class BookPuzzleInteractionController : MonoBehaviour
         }
 
         Vector3 localShelfAxis = maxX - minX >= maxZ - minZ ? Vector3.right : Vector3.forward;
-        return booksRoot.TransformDirection(localShelfAxis).normalized;
+        Vector3 worldShelfAxis = booksRoot.TransformDirection(localShelfAxis).normalized;
+
+        // Slot numbering is the authoritative layout direction. Moving or
+        // rotating the complete shelf can make the measured local axis point
+        // from Slot09 back to Slot01. In that case ascending book coordinates
+        // and ascending slot indices disagree, so neighbours cross instead of
+        // making room. Always orient the axis from Slot01 toward Slot09.
+        if (slotsRoot != null)
+        {
+            Transform firstSlot = slotsRoot.Find("Slot01");
+            Transform lastSlot = slotsRoot.Find("Slot09");
+            if (firstSlot != null && lastSlot != null &&
+                Vector3.Dot(lastSlot.position - firstSlot.position, worldShelfAxis) < 0f)
+            {
+                worldShelfAxis = -worldShelfAxis;
+            }
+        }
+
+        return worldShelfAxis;
     }
 
     private float GetBookCenterCoordinate(Transform book)

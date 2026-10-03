@@ -8,11 +8,19 @@ using UnityEngine.EventSystems;
 /// </summary>
 public sealed class LadderScrollRotationController : MonoBehaviour
 {
+    [Header("Rotation")]
     [SerializeField, Range(0f, 180f)] private float maximumAngle = 90f;
+    [Tooltip("How quickly the ladder opens or closes, in degrees per second.")]
+    [SerializeField, Min(1f)] private float rotationSpeedDegreesPerSecond = 180f;
+
+    [Header("References")]
     [SerializeField] private Transform ladderPivot;
 
     private Camera targetCamera;
     private bool isRotated;
+    private bool hasInitialPose;
+    private float initialLocalX;
+    private float targetLocalX;
 
     /// <summary>True after the ladder has been lowered by its first click.</summary>
     public bool IsLowered => isRotated;
@@ -44,6 +52,8 @@ public sealed class LadderScrollRotationController : MonoBehaviour
             return;
         }
 
+        UpdateRotation();
+
         if (!Input.GetMouseButtonDown(0))
         {
             return;
@@ -55,17 +65,14 @@ public sealed class LadderScrollRotationController : MonoBehaviour
         }
 
         // This is deliberately the ladder's own local X rotation, not an
-        // orbit around ladderPivot. The second click explicitly restores X
-        // to zero, as requested, while preserving local Y and Z.
+        // orbit around ladderPivot. A second click can reverse the animation
+        // even before the first movement has finished.
         isRotated = !isRotated;
-
-        ApplyRotationPose();
+        targetLocalX = isRotated ? initialLocalX - maximumAngle : initialLocalX;
         Debug.Log(isRotated
-            ? $"[LadderRotation] Clicked: subtracted {maximumAngle:0}° from ladder local Rotation X."
-            : "[LadderRotation] Clicked again: restored ladder local Rotation X to 0°.", this);
+            ? $"[LadderRotation] Opening to X={targetLocalX:0.##}° at {rotationSpeedDegreesPerSecond:0.##}°/s."
+            : $"[LadderRotation] Closing to X={targetLocalX:0.##}° at {rotationSpeedDegreesPerSecond:0.##}°/s.", this);
     }
-
-    private bool hasInitialPose;
 
     private bool ResolveReferences()
     {
@@ -87,6 +94,8 @@ public sealed class LadderScrollRotationController : MonoBehaviour
         if (!hasInitialPose)
         {
             hasInitialPose = true;
+            initialLocalX = NormalizeSignedAngle(transform.localEulerAngles.x);
+            targetLocalX = initialLocalX;
             Debug.Log($"[LadderRotation] Ready: ladder='{name}', pivot='{ladderPivot.name}'.", this);
         }
 
@@ -116,11 +125,26 @@ public sealed class LadderScrollRotationController : MonoBehaviour
         return false;
     }
 
-    private void ApplyRotationPose()
+    private void UpdateRotation()
     {
         Vector3 localEuler = transform.localEulerAngles;
-        localEuler.x = isRotated ? localEuler.x - maximumAngle : 0f;
+        float currentLocalX = NormalizeSignedAngle(localEuler.x);
+        float nextLocalX = Mathf.MoveTowardsAngle(
+            currentLocalX,
+            targetLocalX,
+            rotationSpeedDegreesPerSecond * Time.deltaTime);
+        if (Mathf.Approximately(currentLocalX, nextLocalX))
+        {
+            return;
+        }
+
+        localEuler.x = nextLocalX;
         transform.localEulerAngles = localEuler;
+    }
+
+    private static float NormalizeSignedAngle(float angle)
+    {
+        return Mathf.DeltaAngle(0f, angle);
     }
 
     private void EnsureCollider()
