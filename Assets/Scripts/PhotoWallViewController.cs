@@ -38,7 +38,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
     [SerializeField, Min(0.00001f)] private float entranceDepth = 0.001f;
     [SerializeField, Range(0f, 1f)] private float minimumFrontFacingDot = 0.342f;
 
-    private BoxCollider entranceCollider;
+    private Collider frameCollider;
     private Vector3 previousCameraPosition;
     private Quaternion previousCameraRotation;
     private bool previousRoomRotationEnabled;
@@ -76,12 +76,16 @@ public sealed class PhotoWallViewController : MonoBehaviour
                 photoWallRoot.gameObject.AddComponent<PhotoWallHoverDebug>();
             }
         }
-        CreateEntranceCollider();
+        frameCollider = FindFrameCollider();
+        if (frameCollider == null)
+        {
+            Debug.LogWarning("Photo-wall entry needs a Collider on 'frame' or one of its children.", this);
+        }
     }
 
     private void Update()
     {
-        if (!Application.isPlaying || targetCamera == null || entranceCollider == null || isTransitioning) return;
+        if (!Application.isPlaying || targetCamera == null || frameCollider == null || isTransitioning) return;
 
         if (isFocused)
         {
@@ -94,7 +98,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
             (ignorePointerOverUi && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
 
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit) && hit.collider == entranceCollider &&
+        if (Physics.Raycast(ray, out RaycastHit hit) && IsFrameCollider(hit.collider) &&
             IsFrontEntranceClick(hit))
             EnterPhotoWallView(hit.normal);
     }
@@ -122,7 +126,6 @@ public sealed class PhotoWallViewController : MonoBehaviour
 
         if (photoWallCameraTarget != null)
         {
-            entranceCollider.enabled = false;
             StartCoroutine(MoveCamera(photoWallCameraTarget.position, photoWallCameraTarget.rotation, true));
             return;
         }
@@ -145,7 +148,6 @@ public sealed class PhotoWallViewController : MonoBehaviour
             targetRotation * Vector3.right * framingOffset.x +
             targetRotation * Vector3.up * framingOffset.y;
 
-        entranceCollider.enabled = false;
         StartCoroutine(MoveCamera(targetCenter + outwardNormal * distance, targetRotation, true));
     }
 
@@ -188,7 +190,6 @@ public sealed class PhotoWallViewController : MonoBehaviour
         {
             IsPhotoWallInteractionActive = false;
             if (roomRotation != null) roomRotation.enabled = previousRoomRotationEnabled;
-            if (entranceCollider != null) entranceCollider.enabled = true;
         }
     }
 
@@ -200,52 +201,56 @@ public sealed class PhotoWallViewController : MonoBehaviour
         }
     }
 
-    private void CreateEntranceCollider()
+    private Collider FindFrameCollider()
     {
-        if (photoWallRoot == null || targetCamera == null || !TryGetLocalPhotoWallBounds(out Vector3 minimum, out Vector3 maximum))
+        foreach (Transform candidate in Resources.FindObjectsOfTypeAll<Transform>())
         {
-            Debug.LogWarning("Photo-wall entrance collider could not be created.", this);
-            return;
+            if (candidate == null || !candidate.gameObject.scene.IsValid() ||
+                !string.Equals(candidate.name, "frame", System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            Collider collider = candidate.GetComponent<Collider>();
+            if (collider == null)
+            {
+                collider = candidate.GetComponentInChildren<Collider>(true);
+            }
+
+            if (collider != null)
+            {
+                return collider;
+            }
         }
 
-        entranceCollider = gameObject.AddComponent<BoxCollider>();
-        entranceCollider.isTrigger = false;
+        return null;
+    }
 
-        Vector3 size = maximum - minimum;
-        Vector3 localCenter = (minimum + maximum) * 0.5f;
-        entranceNormalAxis = GetSmallestAxis(size);
-        float cameraCoordinate = GetAxis(transform.InverseTransformPoint(targetCamera.transform.position), entranceNormalAxis);
-        float wallCoordinate = GetAxis(localCenter, entranceNormalAxis);
-        entranceOutwardSign = cameraCoordinate >= wallCoordinate ? 1f : -1f;
-        float outwardSurface = entranceOutwardSign > 0f
-            ? GetAxis(maximum, entranceNormalAxis)
-            : GetAxis(minimum, entranceNormalAxis);
+    private static bool IsFrameCollider(Collider collider)
+    {
+        for (Transform candidate = collider.transform; candidate != null; candidate = candidate.parent)
+        {
+            if (string.Equals(candidate.name, "frame", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
 
-        SetAxis(ref size, entranceNormalAxis, entranceDepth);
-        SetAxis(ref localCenter, entranceNormalAxis, outwardSurface + entranceOutwardSign * entranceDepth * 0.5f);
-        size += new Vector3(entrancePadding * 2f, entrancePadding * 2f, entrancePadding * 2f);
-        SetAxis(ref size, entranceNormalAxis, entranceDepth);
-
-        entranceCollider.center = localCenter;
-        entranceCollider.size = size;
+        return false;
     }
 
     private bool IsFrontEntranceClick(RaycastHit hit)
     {
-        Vector3 localNormal = entranceNormalAxis == 0 ? Vector3.right :
-            entranceNormalAxis == 1 ? Vector3.up : Vector3.forward;
-        Vector3 frontNormal = transform.TransformDirection(localNormal * entranceOutwardSign).normalized;
         Vector3 wallToCamera = targetCamera.transform.position - hit.point;
         if (wallToCamera.sqrMagnitude < 0.000001f)
         {
             return false;
         }
 
-        // Reject both the thin collider's side faces and strongly oblique room
-        // views. The player must rotate the room until the photo face is visible.
-        float faceAlignment = Vector3.Dot(hit.normal.normalized, frontNormal);
-        float viewAlignment = Vector3.Dot(wallToCamera.normalized, frontNormal);
-        return faceAlignment >= 0.9f && viewAlignment >= minimumFrontFacingDot;
+        // Use the actual frame collider face.  This remains valid even when
+        // the room has rotated, unlike the former wall-sized entry box.
+        float viewAlignment = Vector3.Dot(hit.normal.normalized, wallToCamera.normalized);
+        return viewAlignment >= minimumFrontFacingDot;
     }
 
     private Transform FindPhotoWallRoot()

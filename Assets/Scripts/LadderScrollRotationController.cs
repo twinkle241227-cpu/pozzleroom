@@ -14,6 +14,9 @@ public sealed class LadderScrollRotationController : MonoBehaviour
     private Camera targetCamera;
     private bool isRotated;
 
+    /// <summary>True after the ladder has been lowered by its first click.</summary>
+    public bool IsLowered => isRotated;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AttachToLadder()
     {
