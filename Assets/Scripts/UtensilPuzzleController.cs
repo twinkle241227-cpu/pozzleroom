@@ -91,7 +91,7 @@ public sealed class UtensilPuzzleController : MonoBehaviour
 
     private void Update()
     {
-        // In the normal room view the entrance Plane owns the left-click.
+        // In the normal room view the CookerPlane entrance owns the left-click.
         // Utensil colliders only become interactive after that view controller
         // finishes moving the camera to its front-facing puzzle view.
         if (KitchenUtensilViewController.Active == null ||

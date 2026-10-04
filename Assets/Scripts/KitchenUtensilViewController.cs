@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Opens a front-facing view of the utensil wall when its Plane collider is
+/// Opens a front-facing view of the utensil wall when its CookerPlane collider is
 /// clicked.  The controller is attached automatically at runtime so the FBX
 /// hierarchy does not need to be modified manually.
 /// </summary>
@@ -34,7 +34,7 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AttachToUtensilPlane()
     {
-        GameObject utensilPlane = GameObject.Find("Plane");
+        GameObject utensilPlane = GameObject.Find("CookerPlane");
         if (utensilPlane != null && utensilPlane.GetComponent<KitchenUtensilViewController>() == null)
         {
             utensilPlane.AddComponent<KitchenUtensilViewController>();
