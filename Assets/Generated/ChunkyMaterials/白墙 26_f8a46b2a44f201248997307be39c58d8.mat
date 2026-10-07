@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: CelWithRim02__StylSurf_Single_ExCel_Spec_Rim [Chunky]
+  m_Name: "\u767D\u5899 26 [Chunky]"
   m_Shader: {fileID: 4800000, guid: 8c8b45e4a9a44e74b83d68abec8b7601, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -25,8 +25,8 @@ Material:
     m_TexEnvs:
     - _BaseMap:
         m_Texture: {fileID: 0}
-        m_Scale: {x: 0, y: 0}
-        m_Offset: {x: 1, y: 1}
+        m_Scale: {x: 30, y: 15}
+        m_Offset: {x: 1.5, y: 1.7}
     - _PatternAtlas:
         m_Texture: {fileID: 2800000, guid: e563a16467ce42c4af465a49e723f2e8, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -57,7 +57,7 @@ Material:
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72
     m_Colors:
-    - _BaseColor: {r: 1, g: 0.2705879, b: 0.32003683, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
     - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
     - _InkColor: {r: 0.08, g: 0.1, b: 0.22, a: 1}

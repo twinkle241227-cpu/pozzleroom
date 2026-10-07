@@ -57,9 +57,9 @@ Material:
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72
     m_Colors:
-    - _BaseColor: {r: 0.30196047, g: 0.42745066, b: 0.098038934, a: 1}
+    - _BaseColor: {r: 0.30196044, g: 0.42745063, b: 0.098038904, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
-    - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
+    - _HighlightColor: {r: 0.8679245, g: 0.62683433, b: 0, a: 1}
     - _InkColor: {r: 0.08, g: 0.1, b: 0.22, a: 1}
     - _ObjectBoundsCenter: {r: 0, g: 0, b: 0, a: 0}
     - _ObjectBoundsSize: {r: 1, g: 1, b: 1, a: 0}
