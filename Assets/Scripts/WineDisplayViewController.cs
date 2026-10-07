@@ -48,6 +48,11 @@ public sealed class WineDisplayViewController : MonoBehaviour
             return;
         }
 
+        if (PuzzleViewLock.IsLockedByOther(this))
+        {
+            return;
+        }
+
         if (isFocused)
         {
             if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -80,6 +85,11 @@ public sealed class WineDisplayViewController : MonoBehaviour
         if (!TryGetDisplayBounds(out Bounds bounds))
         {
             Debug.LogWarning("[WineDisplay] No Renderer was found under the wine display.", this);
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
+        {
             return;
         }
 
@@ -147,7 +157,13 @@ public sealed class WineDisplayViewController : MonoBehaviour
             {
                 roomRotation.enabled = previousRoomRotationEnabled;
             }
+            PuzzleViewLock.Release(this);
         }
+    }
+
+    private void OnDisable()
+    {
+        PuzzleViewLock.Release(this);
     }
 
     private bool TryGetDisplayBounds(out Bounds bounds)

@@ -34,7 +34,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _AtlasStrength: 0.58
-    - _ChunkCoverage: 1
+    - _ChunkCoverage: 0.52
     - _CoolEnd: 0.48
     - _CoolStart: 0.05
     - _Cutoff: 0.5
@@ -45,8 +45,8 @@ Material:
     - _HighlightStrength: 0.92
     - _MappingMode: 0
     - _Metallic: 0
-    - _PatternScale: 0.1
-    - _PatternStrength: 1
+    - _PatternScale: 3.2
+    - _PatternStrength: 0.28
     - _SecondaryPatternStrength: 0.22
     - _ShadowDepth: 0.38
     - _Smoothness: 0.18
@@ -59,7 +59,7 @@ Material:
     m_Colors:
     - _BaseColor: {r: 0.7987421, g: 0.7987421, b: 0.7987421, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
-    - _HighlightColor: {r: 1, g: 1, b: 1, a: 1}
+    - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
     - _InkColor: {r: 0.08, g: 0.1, b: 0.22, a: 1}
     - _ObjectBoundsCenter: {r: 0, g: 0, b: 0, a: 0}
     - _ObjectBoundsSize: {r: 1, g: 1, b: 1, a: 0}

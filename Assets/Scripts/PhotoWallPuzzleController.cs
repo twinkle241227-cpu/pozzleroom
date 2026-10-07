@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
-/// <summary>Owns photo-to-pin slots, drag interaction, and letter-based completion.</summary>
+/// <summary>Owns photo-to-pin slots, drag interaction, and number-based completion.</summary>
 public sealed class PhotoWallPuzzleController : MonoBehaviour
 {
     public static PhotoWallPuzzleController ActiveInstance { get; private set; }
@@ -43,7 +43,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     private sealed class PhotoState
     {
         public Transform Transform;
-        public char Letter;
+        public int SequenceNumber;
         public Quaternion CorrectRotation;
         public PinState CurrentPin;
         public int CurrentSlot;
@@ -56,7 +56,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     private sealed class PinState
     {
         public Transform Transform;
-        public char Letter;
+        public int SequenceNumber;
         public readonly PhotoState[] Slots = new PhotoState[2];
     }
 
@@ -274,7 +274,9 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         draggedPhoto = new PhotoState
         {
             Transform = photoTransform,
-            Letter = TryGetLetter(photoTransform.name, "photo", out char letter) ? letter : '\0',
+            SequenceNumber = TryGetSequenceNumber(photoTransform.name, "photo", out int sequenceNumber)
+                ? sequenceNumber
+                : -1,
             CorrectRotation = photoTransform.rotation,
             CurrentPin = null,
             CurrentSlot = -1,
@@ -372,20 +374,31 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
 
     private void UpdateCorrectState(PhotoState photo)
     {
-        if (photo == null || photo.CurrentPin == null || photo.Letter == '\0' ||
-            photo.Letter != photo.CurrentPin.Letter)
+        if (photo == null)
         {
             return;
         }
 
-        photo.IsCorrect = true;
+        bool isCorrect = photo.CurrentPin != null &&
+                         photo.SequenceNumber >= 0 &&
+                         photo.SequenceNumber == photo.CurrentPin.SequenceNumber;
+        photo.IsCorrect = isCorrect;
+
         PhotoHoverOutline outline = photo.Transform.GetComponent<PhotoHoverOutline>();
-        if (outline != null)
+        if (outline == null)
         {
-            outline.SetCorrectState(correctOutlineColor);
+            return;
         }
 
-        Debug.Log($"[PhotoWallPuzzle] Correct: {photo.Transform.name} -> {photo.CurrentPin.Transform.name}.", this);
+        if (isCorrect)
+        {
+            outline.SetCorrectState(correctOutlineColor);
+            Debug.Log($"[PhotoWallPuzzle] Correct number match: {photo.Transform.name} -> {photo.CurrentPin.Transform.name} (#{photo.SequenceNumber}).", this);
+        }
+        else
+        {
+            outline.ClearCorrectState();
+        }
     }
 
     private PinState FindClosestAvailablePin(Vector3 position, out float distance)
@@ -471,7 +484,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
                 foreach (Transform candidate in discoveredWallRoot.GetComponentsInChildren<Transform>(true))
                 {
                     if (candidate == discoveredWallRoot || IsRuntimeOutline(candidate) ||
-                        !TryGetLetter(candidate.name, "photo", out _) || candidate.GetComponent<Collider>() == null)
+                        !TryGetSequenceNumber(candidate.name, "photo", out _) || candidate.GetComponent<Collider>() == null)
                     {
                         continue;
                     }
@@ -485,7 +498,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             foreach (PhotoHoverOutline outline in PhotoHoverOutline.GetRegisteredPhotos())
             {
                 Transform candidate = outline.transform;
-                if (candidate == null || IsRuntimeOutline(candidate) || !TryGetLetter(candidate.name, "photo", out _)) continue;
+                if (candidate == null || IsRuntimeOutline(candidate) || !TryGetSequenceNumber(candidate.name, "photo", out _)) continue;
                 photoRoots.Add(candidate);
                 discoveredWallRoot = FindWallRoot(candidate, discoveredWallRoot);
             }
@@ -504,12 +517,13 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
                 continue;
             }
 
-            // The imported runtime pins are named pin1, pin2... even when their
-            // editor labels were renamed. Their intended letter is recovered from
-            // the authored photo sharing the same numeric suffix (e.g. Cphoto1
-            // defines pin1 as a C destination).
-            char pinLetter = GetPinLetter(candidate.name, photoRoots);
-            pins.Add(new PinState { Transform = candidate, Letter = pinLetter });
+            if (!TryGetSequenceNumber(candidate.name, "pin", out int sequenceNumber))
+            {
+                Debug.LogWarning($"[PhotoWallPuzzle] Pin '{candidate.name}' has no numeric suffix and will not participate in completion.", candidate);
+                continue;
+            }
+
+            pins.Add(new PinState { Transform = candidate, SequenceNumber = sequenceNumber });
         }
 
         if (pins.Count == 0) return;
@@ -521,7 +535,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
 
         foreach (Transform candidate in photoRoots)
         {
-            if (candidate == null || !TryGetLetter(candidate.name, "photo", out char photoLetter)) continue;
+            if (candidate == null || !TryGetSequenceNumber(candidate.name, "photo", out int sequenceNumber)) continue;
             if (!shuffleController.TryGetInitialRotation(candidate, out Quaternion correctRotation))
             {
                 correctRotation = candidate.rotation;
@@ -532,7 +546,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             PhotoState state = new PhotoState
             {
                 Transform = candidate,
-                Letter = photoLetter,
+                SequenceNumber = sequenceNumber,
                 CorrectRotation = correctRotation,
                 CurrentPin = nearest,
                 CurrentSlot = slot,
@@ -643,41 +657,38 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
         onPuzzleSolved?.Invoke();
     }
 
-    private static bool TryGetLetter(string name, string marker, out char letter)
+    /// <summary>
+    /// Reads the first integer after a marker, so Aphoto01 and pin01 both map
+    /// to sequence number 1. Prefix letters do not affect the puzzle result.
+    /// </summary>
+    private static bool TryGetSequenceNumber(string name, string marker, out int sequenceNumber)
     {
         int markerIndex = name.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex > 0)
+        if (markerIndex < 0)
         {
-            letter = char.ToUpperInvariant(name[0]);
-            return true;
+            sequenceNumber = -1;
+            return false;
         }
 
-        letter = default;
-        return false;
-    }
-
-    private static char GetPinLetter(string pinName, List<Transform> photoRoots)
-    {
-        if (TryGetLetter(pinName, "pin", out char explicitLetter))
+        int digitStart = markerIndex + marker.Length;
+        while (digitStart < name.Length && !char.IsDigit(name[digitStart]))
         {
-            return explicitLetter;
+            digitStart++;
         }
 
-        int pinIndex = pinName.IndexOf("pin", StringComparison.OrdinalIgnoreCase);
-        if (pinIndex < 0) return '\0';
-        string pinSuffix = pinName.Substring(pinIndex + "pin".Length);
-        foreach (Transform photo in photoRoots)
+        if (digitStart >= name.Length)
         {
-            if (photo == null || !TryGetLetter(photo.name, "photo", out char photoLetter)) continue;
-            int photoIndex = photo.name.IndexOf("photo", StringComparison.OrdinalIgnoreCase);
-            string photoSuffix = photo.name.Substring(photoIndex + "photo".Length);
-            if (string.Equals(photoSuffix, pinSuffix, StringComparison.OrdinalIgnoreCase))
-            {
-                return photoLetter;
-            }
+            sequenceNumber = -1;
+            return false;
         }
 
-        return '\0';
+        int digitEnd = digitStart;
+        while (digitEnd < name.Length && char.IsDigit(name[digitEnd]))
+        {
+            digitEnd++;
+        }
+
+        return int.TryParse(name.Substring(digitStart, digitEnd - digitStart), out sequenceNumber);
     }
 
     private static bool IsRuntimeOutline(Transform candidate)
@@ -694,7 +705,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
             int pinCount = 0;
             foreach (Transform child in ancestor.GetComponentsInChildren<Transform>(true))
             {
-                if (TryGetLetter(child.name, "pin", out _)) pinCount++;
+                if (TryGetSequenceNumber(child.name, "pin", out _)) pinCount++;
             }
 
             if (pinCount > 0)

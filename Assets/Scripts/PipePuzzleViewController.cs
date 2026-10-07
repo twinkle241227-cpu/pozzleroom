@@ -72,10 +72,7 @@ public sealed class PipePuzzleViewController : MonoBehaviour
             return;
         }
 
-        // The photo wall owns all pointer input while its focused view (or
-        // transition) is active. Without this modal lock, RaycastAll can see
-        // through photo colliders and trigger the pipe puzzle behind them.
-        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
+        if (PuzzleViewLock.IsLockedByOther(this))
         {
             return;
         }
@@ -117,6 +114,11 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         if (pipeCamera == null)
         {
             Debug.LogWarning("[PipeView] Could not find the authored 'PipeCamera' viewpoint.", this);
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
+        {
             return;
         }
 
@@ -185,7 +187,13 @@ public sealed class PipePuzzleViewController : MonoBehaviour
             {
                 roomRotation.enabled = previousRoomRotationEnabled;
             }
+            PuzzleViewLock.Release(this);
         }
+    }
+
+    private void OnDisable()
+    {
+        PuzzleViewLock.Release(this);
     }
 
     private static Transform FindSceneTransform(string objectName)

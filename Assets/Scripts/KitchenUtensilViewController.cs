@@ -51,6 +51,7 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
 
     private void OnDestroy()
     {
+        PuzzleViewLock.Release(this);
         if (Active == this)
         {
             Active = null;
@@ -64,10 +65,7 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
             return;
         }
 
-        // The photo wall is a modal puzzle view. Its photos can overlap this
-        // entrance collider in screen space, so never react to left-clicks
-        // while that view (or either of its transitions) owns the camera.
-        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
+        if (PuzzleViewLock.IsLockedByOther(this))
         {
             return;
         }
@@ -105,6 +103,11 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
     private void EnterFrontView(Vector3 hitNormal)
     {
         if (!TryGetUtensilBounds(out Bounds bounds))
+        {
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
         {
             return;
         }
@@ -168,7 +171,13 @@ public sealed class KitchenUtensilViewController : MonoBehaviour
             {
                 roomRotation.enabled = previousRoomRotationEnabled;
             }
+            PuzzleViewLock.Release(this);
         }
+    }
+
+    private void OnDisable()
+    {
+        PuzzleViewLock.Release(this);
     }
 
     private bool TryGetUtensilBounds(out Bounds bounds)

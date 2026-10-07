@@ -78,9 +78,7 @@ public sealed class BookPuzzleViewController : MonoBehaviour
             return;
         }
 
-        // The photo wall owns the camera and left-click input as a modal view.
-        // Ignore this entrance even when its projected click area overlaps it.
-        if (!isFocused && PhotoWallViewController.IsPhotoWallInteractionActive)
+        if (PuzzleViewLock.IsLockedByOther(this))
         {
             return;
         }
@@ -141,6 +139,11 @@ public sealed class BookPuzzleViewController : MonoBehaviour
     private void EnterFrontView()
     {
         if (!TryGetBookBounds(out Bounds bounds))
+        {
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
         {
             return;
         }
@@ -212,6 +215,16 @@ public sealed class BookPuzzleViewController : MonoBehaviour
         {
             roomRotation.enabled = previousRoomRotationEnabled;
         }
+
+        if (!entering)
+        {
+            PuzzleViewLock.Release(this);
+        }
+    }
+
+    private void OnDisable()
+    {
+        PuzzleViewLock.Release(this);
     }
 
     private bool TryGetBookBounds(out Bounds combinedBounds)

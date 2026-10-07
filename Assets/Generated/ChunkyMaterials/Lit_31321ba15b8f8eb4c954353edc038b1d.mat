@@ -46,13 +46,13 @@ Material:
     - _MappingMode: 0
     - _Metallic: 0
     - _PatternScale: 3.2
-    - _PatternStrength: 1
+    - _PatternStrength: 0.28
     - _SecondaryPatternStrength: 0.22
     - _ShadowDepth: 0.38
     - _Smoothness: 0.18
     - _SpecularSize: 0.42
     - _StrokeStrength: 0.18
-    - _ToonSteps: 2
+    - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72

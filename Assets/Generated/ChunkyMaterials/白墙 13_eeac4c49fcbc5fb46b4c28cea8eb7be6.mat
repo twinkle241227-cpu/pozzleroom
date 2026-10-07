@@ -46,18 +46,18 @@ Material:
     - _MappingMode: 0
     - _Metallic: 0
     - _PatternScale: 3.2
-    - _PatternStrength: 1
+    - _PatternStrength: 0.28
     - _SecondaryPatternStrength: 0.22
     - _ShadowDepth: 0.38
     - _Smoothness: 0.18
     - _SpecularSize: 0.42
     - _StrokeStrength: 0.18
-    - _ToonSteps: 2
+    - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72
     m_Colors:
-    - _BaseColor: {r: 0.5917205, g: 0.6163521, b: 0.38958082, a: 1}
+    - _BaseColor: {r: 0.5917205, g: 0.6163521, b: 0.3895809, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
     - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
     - _InkColor: {r: 0.08, g: 0.1, b: 0.22, a: 1}

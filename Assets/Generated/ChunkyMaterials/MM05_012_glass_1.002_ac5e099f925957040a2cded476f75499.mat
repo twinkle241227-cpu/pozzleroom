@@ -52,7 +52,7 @@ Material:
     - _Smoothness: 0.18
     - _SpecularSize: 0.42
     - _StrokeStrength: 0.18
-    - _ToonSteps: 2
+    - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72

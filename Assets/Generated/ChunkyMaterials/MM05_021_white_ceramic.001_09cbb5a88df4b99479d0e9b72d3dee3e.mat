@@ -34,25 +34,25 @@ Material:
     m_Ints: []
     m_Floats:
     - _AtlasStrength: 0.58
-    - _ChunkCoverage: 1
+    - _ChunkCoverage: 0.52
     - _CoolEnd: 0.48
     - _CoolStart: 0.05
     - _Cutoff: 0.5
-    - _DotStrength: 1
+    - _DotStrength: 0.38
     - _GrainStrength: 0.08
     - _HighlightBoost: 1.45
     - _HighlightStart: 0.72
     - _HighlightStrength: 0.92
     - _MappingMode: 0
     - _Metallic: 0
-    - _PatternScale: 0.1
-    - _PatternStrength: 1
+    - _PatternScale: 3.2
+    - _PatternStrength: 0.28
     - _SecondaryPatternStrength: 0.22
     - _ShadowDepth: 0.38
     - _Smoothness: 0.18
     - _SpecularSize: 0.42
     - _StrokeStrength: 0.18
-    - _ToonSteps: 8
+    - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72

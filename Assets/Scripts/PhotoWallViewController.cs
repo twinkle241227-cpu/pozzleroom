@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// Focuses the main camera on a hand-authored photo-wall view when this object's
-/// collider is clicked. Right-click restores the room view.
+/// Focuses the main camera on a hand-authored photo-wall view when any part of
+/// the photo wall is clicked. Right-click restores the room view.
 /// </summary>
 public sealed class PhotoWallViewController : MonoBehaviour
 {
@@ -26,6 +26,8 @@ public sealed class PhotoWallViewController : MonoBehaviour
     [SerializeField] private bool ignorePointerOverUi = true;
 
     [Header("Automatic Framing Fallback")]
+    [Tooltip("Main Camera 进入照片墙正视角后，到照片墙平面的距离。数值越小越靠近。")]
+    [SerializeField, Min(0.01f)] private float cameraDistance = 0.8f;
     [SerializeField, Min(0f)] private float framingPadding = 0.35f;
     [SerializeField] private Vector2 framingOffset = Vector2.zero;
 
@@ -78,14 +80,26 @@ public sealed class PhotoWallViewController : MonoBehaviour
         }
         frameCollider = FindFrameCollider();
         if (frameCollider == null)
+            Debug.LogWarning("Photo-wall entry could not find the authored frame Collider; it will use the clicked photo-wall Collider normal.", this);
+    }
+
+    private void Start()
+    {
+        // The puzzle must already look scrambled in the room before the player
+        // clicks it.  Keep hasShuffled so re-entering the view does not reset
+        // the player's progress.
+        if (Application.isPlaying && !hasShuffled && shuffleController != null)
         {
-            Debug.LogWarning("Photo-wall entry needs a Collider on 'frame' or one of its children.", this);
+            shuffleController.ShufflePhotos();
+            hasShuffled = true;
         }
     }
 
     private void Update()
     {
-        if (!Application.isPlaying || targetCamera == null || frameCollider == null || isTransitioning) return;
+        if (!Application.isPlaying || targetCamera == null || photoWallRoot == null || isTransitioning) return;
+
+        if (PuzzleViewLock.IsLockedByOther(this)) return;
 
         if (isFocused)
         {
@@ -98,8 +112,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
             (ignorePointerOverUi && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
 
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit) && IsFrameCollider(hit.collider) &&
-            IsFrontEntranceClick(hit))
+        if (TryGetPhotoWallHit(ray, out RaycastHit hit))
             EnterPhotoWallView(hit.normal);
     }
 
@@ -111,6 +124,11 @@ public sealed class PhotoWallViewController : MonoBehaviour
     private void EnterPhotoWallView(Vector3 surfaceNormal)
     {
         if (isFocused || isTransitioning || targetCamera == null)
+        {
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
         {
             return;
         }
@@ -135,6 +153,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
             Debug.LogWarning("Photo-wall automatic framing found no renderers.", this);
             if (roomRotation != null) roomRotation.enabled = previousRoomRotationEnabled;
             IsPhotoWallInteractionActive = false;
+            PuzzleViewLock.Release(this);
             return;
         }
 
@@ -143,7 +162,9 @@ public sealed class PhotoWallViewController : MonoBehaviour
             outwardNormal = -outwardNormal;
 
         Quaternion targetRotation = Quaternion.LookRotation(-outwardNormal, Vector3.up);
-        float distance = CalculateFitDistance(bounds, targetRotation);
+        // The distance is deliberately authored in the Inspector so the
+        // designer can tune the photo-wall close-up without moving an anchor.
+        float distance = cameraDistance;
         Vector3 targetCenter = bounds.center +
             targetRotation * Vector3.right * framingOffset.x +
             targetRotation * Vector3.up * framingOffset.y;
@@ -175,11 +196,6 @@ public sealed class PhotoWallViewController : MonoBehaviour
         }
 
         targetCamera.transform.SetPositionAndRotation(destinationPosition, destinationRotation);
-        if (entering && !hasShuffled && shuffleController != null)
-        {
-            shuffleController.ShufflePhotos();
-            hasShuffled = true;
-        }
         isFocused = entering;
         if (entering && puzzleController != null)
         {
@@ -189,12 +205,14 @@ public sealed class PhotoWallViewController : MonoBehaviour
         if (!entering)
         {
             IsPhotoWallInteractionActive = false;
+            PuzzleViewLock.Release(this);
             if (roomRotation != null) roomRotation.enabled = previousRoomRotationEnabled;
         }
     }
 
     private void OnDisable()
     {
+        PuzzleViewLock.Release(this);
         if (isFocused || isTransitioning)
         {
             IsPhotoWallInteractionActive = false;
@@ -237,6 +255,49 @@ public sealed class PhotoWallViewController : MonoBehaviour
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Finds the nearest front-facing hit belonging to the photo-wall hierarchy.
+    /// RaycastAll is intentional: the photos and a wall collider sit in front of
+    /// the authored frame collider, so a single Physics.Raycast cannot reach the
+    /// photo wall reliably.
+    /// </summary>
+    private bool TryGetPhotoWallHit(Ray ray, out RaycastHit selectedHit)
+    {
+        RaycastHit[] hits = Physics.RaycastAll(ray, Mathf.Infinity, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide);
+        float nearestDistance = float.PositiveInfinity;
+        selectedHit = default;
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (!IsPhotoWallCollider(hit.collider) || !IsFrontEntranceClick(hit))
+            {
+                continue;
+            }
+
+            if (hit.distance >= nearestDistance)
+            {
+                continue;
+            }
+
+            nearestDistance = hit.distance;
+            selectedHit = hit;
+        }
+
+        return nearestDistance < float.PositiveInfinity;
+    }
+
+    private bool IsPhotoWallCollider(Collider collider)
+    {
+        if (collider == null)
+        {
+            return false;
+        }
+
+        Transform hitTransform = collider.transform;
+        return photoWallRoot != null &&
+               (hitTransform == photoWallRoot || hitTransform.IsChildOf(photoWallRoot));
     }
 
     private bool IsFrontEntranceClick(RaycastHit hit)

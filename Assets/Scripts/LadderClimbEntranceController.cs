@@ -94,6 +94,11 @@ public sealed class LadderClimbEntranceController : MonoBehaviour
             return;
         }
 
+        if (PuzzleViewLock.IsLockedByOther(this))
+        {
+            return;
+        }
+
         if (isFocused)
         {
             if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
@@ -150,6 +155,11 @@ public sealed class LadderClimbEntranceController : MonoBehaviour
         if (!TryGetLadderBounds(out Bounds bounds))
         {
             Debug.LogWarning("[LadderClimb] No ladder renderer was found.", this);
+            return;
+        }
+
+        if (!PuzzleViewLock.TryAcquire(this))
+        {
             return;
         }
 
@@ -229,7 +239,13 @@ public sealed class LadderClimbEntranceController : MonoBehaviour
             {
                 roomRotation.enabled = previousRoomRotationEnabled;
             }
+            PuzzleViewLock.Release(this);
         }
+    }
+
+    private void OnDisable()
+    {
+        PuzzleViewLock.Release(this);
     }
 
     private void UpdateClimbFromScroll()
