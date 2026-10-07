@@ -6,30 +6,14 @@ Shader "PozzleRoom/Global Chunky Stylized"
         [NoScaleOffset] _PatternAtlas("Hand-painted Pattern Atlas", 2D) = "black" {}
         [MainColor] _BaseColor("Base Color", Color) = (1,1,1,1)
         _WarmLitColor("Warm Lit Color", Color) = (1.00,0.38,0.16,1)
-        _SecondaryWarmColor("Secondary Warm Color", Color) = (1.00,0.68,0.20,1)
         _CoolShadowColor("Cool Shadow Color", Color) = (0.16,0.30,0.62,1)
-        _SecondaryCoolColor("Secondary Cool Color", Color) = (0.30,0.18,0.52,1)
-        _InkColor("Deep Texture Color", Color) = (0.08,0.10,0.22,1)
         _HighlightColor("Highlight Dot Color", Color) = (1,0.96,0.86,1)
         _PatternScale("Pattern Scale", Range(0.1, 20)) = 3.2
         _PatternStrength("Pattern Strength", Range(0, 1)) = 0.28
-        _ChunkCoverage("Chunk Coverage", Range(0, 1)) = 0.52
         _DotStrength("Dot Strength", Range(0, 1)) = 0.38
-        _ToonSteps("Toon Steps", Range(2, 8)) = 4
-        _CoolStart("Cool Range Start", Range(0, 1)) = 0.05
-        _CoolEnd("Cool Range End", Range(0, 1)) = 0.48
-        _WarmStart("Warm Range Start", Range(0, 1)) = 0.42
-        _WarmEnd("Warm Range End", Range(0, 1)) = 0.88
-        _HighlightStart("Highlight Start", Range(0, 1)) = 0.72
         _HighlightStrength("Highlight Strength", Range(0, 1)) = 0.72
         _HighlightBoost("Highlight Brightness", Range(0, 3)) = 1.45
-        _ShadowDepth("Shadow Depth", Range(0, 1)) = 0.38
         _SpecularSize("Highlight Size", Range(0.05, 1)) = 0.42
-        _SecondaryPatternStrength("Secondary Pattern Strength", Range(0, 1)) = 0.34
-        _StrokeStrength("Stroke Strength", Range(0, 1)) = 0.32
-        _GrainStrength("Grain Strength", Range(0, 1)) = 0.18
-        _AtlasStrength("Hand-painted Atlas Strength", Range(0, 1)) = 0.58
-        _WorldPatternScale("Large Object Pattern Density", Range(0.05, 5)) = 0.72
         [HideInInspector] _MappingMode("Mapping Mode", Float) = 0
         _RandomOffset("Random Offset", Vector) = (0,0,0,0)
         _ObjectBoundsCenter("Object Bounds Center", Vector) = (0,0,0,0)
@@ -75,30 +59,14 @@ Shader "PozzleRoom/Global Chunky Stylized"
                 float4 _BaseMap_ST;
                 half4 _BaseColor;
                 half4 _WarmLitColor;
-                half4 _SecondaryWarmColor;
                 half4 _CoolShadowColor;
-                half4 _SecondaryCoolColor;
-                half4 _InkColor;
                 half4 _HighlightColor;
                 float _PatternScale;
                 float _PatternStrength;
-                float _ChunkCoverage;
                 float _DotStrength;
-                float _ToonSteps;
-                float _CoolStart;
-                float _CoolEnd;
-                float _WarmStart;
-                float _WarmEnd;
-                float _HighlightStart;
                 float _HighlightStrength;
                 float _HighlightBoost;
-                float _ShadowDepth;
                 float _SpecularSize;
-                float _SecondaryPatternStrength;
-                float _StrokeStrength;
-                float _GrainStrength;
-                float _AtlasStrength;
-                float _WorldPatternScale;
                 float _MappingMode;
                 float4 _RandomOffset;
                 float4 _ObjectBoundsCenter;
@@ -176,7 +144,7 @@ Shader "PozzleRoom/Global Chunky Stylized"
                 float broadNoise = Fbm(uv * 0.72 + 3.4);
                 float detailNoise = Fbm(uv * 1.85 + 19.1);
                 float field = broadNoise * 0.72 + detailNoise * 0.28;
-                float threshold = lerp(0.72, 0.32, _ChunkCoverage);
+                float threshold = 0.51;
                 float chunk = smoothstep(threshold - 0.09, threshold + 0.09, field);
 
                 // Jitter every halftone centre so highlights feel hand-stamped rather
@@ -251,7 +219,7 @@ Shader "PozzleRoom/Global Chunky Stylized"
                 // and rotation instead of behaving like a camera/world-space filter.
                 float3 propP = localNormalized * _PatternScale;
                 float3 architectureP = (positionOS - _ObjectBoundsCenter.xyz) *
-                    max(abs(_ObjectWorldScale.xyz), 0.0001) * _WorldPatternScale;
+                    max(abs(_ObjectWorldScale.xyz), 0.0001) * 0.72;
                 float3 p = lerp(propP, architectureP, useLargeObjectMapping) + _RandomOffset.xyz;
                 float4 procedural = Pattern2D(p.zy) * weights.x +
                                     Pattern2D(p.xz) * weights.y +
@@ -260,7 +228,7 @@ Shader "PozzleRoom/Global Chunky Stylized"
                 float4 painted = AtlasPattern2D(p.zy, seed + 1.0) * weights.x +
                                  AtlasPattern2D(p.xz, seed + 5.0) * weights.y +
                                  AtlasPattern2D(p.xy, seed + 9.0) * weights.z;
-                return saturate(lerp(procedural, max(procedural * 0.42, painted), _AtlasStrength));
+                return saturate(lerp(procedural, max(procedural * 0.42, painted), 0.72));
             }
 
             Varyings Vert(Attributes input)
@@ -325,42 +293,16 @@ Shader "PozzleRoom/Global Chunky Stylized"
                         pow(additionalNdotH, max(3.0h, specularPower * 0.32h)) * additionalLevel);
                 }
 
-                half coolAmount = 1.0h - smoothstep((half)_CoolStart, (half)_CoolEnd, lightLevel);
-                half warmAmount = smoothstep((half)_WarmStart, (half)_WarmEnd, lightLevel);
-                half highlightAmount = smoothstep((half)_HighlightStart * 0.72h, 1.0h, lightLevel) *
+                // Surface style remains continuous. It never quantizes or reshapes
+                // shadow attenuation, so URP soft-shadow penumbrae stay physical.
+                half warmAmount = smoothstep(0.18h, 0.82h, lightLevel);
+                half3 surfaceTint = lerp(_CoolShadowColor.rgb, _WarmLitColor.rgb, warmAmount);
+                half surfacePattern = pattern.x * (half)_PatternStrength;
+                half3 stylized = lerp(baseSample.rgb, baseSample.rgb * surfaceTint * 1.18h,
+                                      saturate(surfacePattern));
+
+                half highlightAmount = smoothstep(0.58h, 1.0h, lightLevel) *
                                        smoothstep(0.025h, 0.42h, broadSpecular);
-
-                // The texture masks are spatial, but their colour and visibility are
-                // driven by live lighting: cool chunks in shadow, warm chunks in light,
-                // and pale halftone highlights only on the brightest surfaces.
-                half3 stylized = baseSample.rgb;
-                // Increase value separation before adding colour accents. This keeps
-                // pale glass bright while giving the bottle silhouettes real depth.
-                half shadowShape = saturate(1.0h - lightLevel);
-                stylized *= lerp(1.0h, 1.0h - (half)_ShadowDepth, shadowShape * shadowShape);
-                half coolMask = pattern.x * coolAmount * _PatternStrength * 0.65h;
-                half warmMask = pattern.x * warmAmount * _PatternStrength * 0.72h;
-                // Tint rather than replace the albedo, preserving the original
-                // volume, texture and material identity beneath the brushwork.
-                stylized *= lerp(half3(1, 1, 1), _CoolShadowColor.rgb * 1.35h, saturate(coolMask));
-                stylized *= lerp(half3(1, 1, 1), _WarmLitColor.rgb * 1.22h, saturate(warmMask));
-
-                // Smaller fragments use a second palette so large surfaces never
-                // collapse into one flat red or blue area.
-                half fragmentMask = pattern.w * _SecondaryPatternStrength;
-                half3 fragmentColor = lerp(_SecondaryCoolColor.rgb, _SecondaryWarmColor.rgb, warmAmount);
-                stylized = lerp(stylized, stylized * fragmentColor * 1.35h,
-                    saturate(fragmentMask * (0.45h + max(coolAmount, warmAmount) * 0.55h)));
-
-                // Short directional brush stamps favour midtones and illuminated turns.
-                half midtone = 1.0h - abs(lightLevel * 2.0h - 1.0h);
-                half strokeMask = pattern.z * _StrokeStrength * saturate(midtone * 0.75h + warmAmount * 0.35h);
-                stylized = lerp(stylized, _SecondaryWarmColor.rgb,
-                    saturate(strokeMask * 0.48h));
-
-                // Deep micro marks remain mostly in the cool/shadow range.
-                half deepGrain = pattern.w * coolAmount * _GrainStrength;
-                stylized = lerp(stylized, _InkColor.rgb, saturate(deepGrain));
                 half highlightDots = pattern.y * highlightAmount * _DotStrength * _HighlightStrength;
                 stylized = lerp(stylized, _HighlightColor.rgb * _HighlightBoost, saturate(highlightDots));
 
@@ -370,12 +312,9 @@ Shader "PozzleRoom/Global Chunky Stylized"
                 stylized += _HighlightColor.rgb * paintedSheen * 0.34h;
                 stylized += _HighlightColor.rgb * specularLevel * _HighlightBoost * 0.62h;
 
-                half steps = max(2.0h, (half)_ToonSteps);
                 half3 ambient = SampleSH(normalWS);
-                half3 quantizedDirect = floor(saturate(directLighting) * steps) / max(steps - 1.0h, 1.0h);
-                half3 softenedDirect = lerp(directLighting, quantizedDirect, 0.52h);
-                half3 lighting = ambient + softenedDirect;
-                half3 finalColor = stylized * max(lighting, 0.075h);
+                half3 lighting = ambient + directLighting;
+                half3 finalColor = stylized * max(lighting, 0.03h);
                 finalColor = MixFog(finalColor, input.fogFactor);
                 return half4(finalColor, baseSample.a);
             }

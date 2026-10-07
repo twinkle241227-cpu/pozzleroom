@@ -15,7 +15,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     [SerializeField] private bool ignorePointerOverUi = true;
 
     [Header("Completion")]
-    [SerializeField] private Color correctOutlineColor = new Color(0.25f, 1f, 0.38f, 1f);
+    private Color correctOutlineColor = new Color(0.25f, 1f, 0.38f, 1f);
     [SerializeField] private UnityEvent onPuzzleSolved;
 
     private readonly List<PhotoState> photos = new List<PhotoState>();
@@ -39,6 +39,25 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     private string lastDiscoveryReport;
 
     public bool IsDragging => draggedPhoto != null;
+
+    public void ConfigureCorrectOutline(Color color)
+    {
+        correctOutlineColor = color;
+
+        foreach (PhotoState photo in photos)
+        {
+            if (!photo.IsCorrect || photo.Transform == null)
+            {
+                continue;
+            }
+
+            PhotoHoverOutline outline = photo.Transform.GetComponent<PhotoHoverOutline>();
+            if (outline != null)
+            {
+                outline.SetCorrectState(correctOutlineColor);
+            }
+        }
+    }
 
     private sealed class PhotoState
     {

@@ -11,6 +11,8 @@ public sealed class PipePuzzleViewController : MonoBehaviour
 {
     [SerializeField, Min(0f)] private float transitionDuration = 0.35f;
     [SerializeField] private Camera pipeCamera;
+    [Tooltip("只在玩家完全进入管道正视角后启用的灯光。未指定时自动查找 BathroomLight。")]
+    [SerializeField] private Light bathroomLight;
     [SerializeField, Min(0.001f)] private float focusedNearClipPlane = 0.01f;
 
     private Camera targetCamera;
@@ -51,6 +53,17 @@ public sealed class PipePuzzleViewController : MonoBehaviour
                 pipeCamera = pipeCameraTransform.GetComponent<Camera>();
             }
         }
+
+        if (bathroomLight == null)
+        {
+            Transform bathroomLightTransform = FindSceneTransform("BathroomLight");
+            if (bathroomLightTransform != null)
+            {
+                bathroomLight = bathroomLightTransform.GetComponent<Light>();
+            }
+        }
+
+        SetBathroomLight(false);
 
         // PipeCamera is an authored viewpoint, not a second live renderer.
         // The main camera stays active so existing Camera.main raycasts work.
@@ -155,6 +168,11 @@ public sealed class PipePuzzleViewController : MonoBehaviour
     private IEnumerator MoveCamera(Vector3 destinationPosition, Quaternion destinationRotation, bool entering)
     {
         isTransitioning = true;
+        if (!entering)
+        {
+            SetBathroomLight(false);
+        }
+
         Vector3 startPosition = targetCamera.transform.position;
         Quaternion startRotation = targetCamera.transform.rotation;
         float elapsed = 0f;
@@ -175,6 +193,11 @@ public sealed class PipePuzzleViewController : MonoBehaviour
         isFocused = entering;
         isTransitioning = false;
 
+        if (entering)
+        {
+            SetBathroomLight(true);
+        }
+
         if (!entering)
         {
             targetCamera.orthographic = previousOrthographic;
@@ -193,7 +216,16 @@ public sealed class PipePuzzleViewController : MonoBehaviour
 
     private void OnDisable()
     {
+        SetBathroomLight(false);
         PuzzleViewLock.Release(this);
+    }
+
+    private void SetBathroomLight(bool enabled)
+    {
+        if (bathroomLight != null)
+        {
+            bathroomLight.enabled = enabled;
+        }
     }
 
     private static Transform FindSceneTransform(string objectName)

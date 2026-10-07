@@ -20,22 +20,15 @@ public sealed class GlobalChunkyStylizationController : MonoBehaviour
     [SerializeField] private bool includeInactiveObjects;
     [SerializeField] private LayerMask affectedLayers = ~0;
 
-    [Header("块面效果")]
+    [Header("表面波点")]
     [SerializeField, Range(0f, 1f)] private float patternStrength = 0.42f;
     [SerializeField, Range(0.1f, 20f)] private float patternScale = 2.4f;
-    [SerializeField, Range(0f, 1f)] private float chunkCoverage = 0.52f;
     [SerializeField, Range(0f, 1f)] private float dotStrength = 0.22f;
-    [SerializeField, Range(2, 8)] private int toonSteps = 4;
 
-    [Header("实时冷暖与高光")]
+    [Header("连续冷暖与高光")]
     [SerializeField] private Color warmLitColor = new Color(1f, 0.38f, 0.16f, 1f);
     [SerializeField] private Color coolShadowColor = new Color(0.16f, 0.30f, 0.62f, 1f);
     [SerializeField] private Color highlightColor = new Color(1f, 0.96f, 0.86f, 1f);
-    [SerializeField, Range(0f, 1f)] private float coolStart = 0.05f;
-    [SerializeField, Range(0f, 1f)] private float coolEnd = 0.48f;
-    [SerializeField, Range(0f, 1f)] private float warmStart = 0.42f;
-    [SerializeField, Range(0f, 1f)] private float warmEnd = 0.88f;
-    [SerializeField, Range(0f, 1f)] private float highlightStart = 0.72f;
     [SerializeField, Range(0f, 1f)] private float highlightStrength = 0.72f;
 
     [Header("排除")]
@@ -68,12 +61,6 @@ public sealed class GlobalChunkyStylizationController : MonoBehaviour
         {
             ApplyToScene();
         }
-    }
-
-    private void OnValidate()
-    {
-        coolEnd = Mathf.Max(coolStart + 0.001f, coolEnd);
-        warmEnd = Mathf.Max(warmStart + 0.001f, warmEnd);
     }
 
     [ContextMenu("应用到整个场景")]
@@ -258,14 +245,7 @@ public sealed class GlobalChunkyStylizationController : MonoBehaviour
         generated.SetColor("_HighlightColor", highlightColor);
         generated.SetFloat("_PatternScale", patternScale);
         generated.SetFloat("_PatternStrength", patternStrength);
-        generated.SetFloat("_ChunkCoverage", chunkCoverage);
         generated.SetFloat("_DotStrength", dotStrength);
-        generated.SetFloat("_ToonSteps", toonSteps);
-        generated.SetFloat("_CoolStart", coolStart);
-        generated.SetFloat("_CoolEnd", coolEnd);
-        generated.SetFloat("_WarmStart", warmStart);
-        generated.SetFloat("_WarmEnd", warmEnd);
-        generated.SetFloat("_HighlightStart", highlightStart);
         generated.SetFloat("_HighlightStrength", highlightStrength);
         generated.SetFloat("_Smoothness", ReadFloat(source, 0.18f, "_Smoothness", "_Glossiness"));
         generated.SetFloat("_Metallic", ReadFloat(source, 0f, "_Metallic"));
@@ -289,17 +269,10 @@ public sealed class GlobalChunkyStylizationController : MonoBehaviour
     {
         patternStrength = template.GetFloat("_PatternStrength");
         patternScale = template.GetFloat("_PatternScale");
-        chunkCoverage = template.GetFloat("_ChunkCoverage");
         dotStrength = template.GetFloat("_DotStrength");
-        toonSteps = Mathf.RoundToInt(template.GetFloat("_ToonSteps"));
         warmLitColor = template.GetColor("_WarmLitColor");
         coolShadowColor = template.GetColor("_CoolShadowColor");
         highlightColor = template.GetColor("_HighlightColor");
-        coolStart = template.GetFloat("_CoolStart");
-        coolEnd = template.GetFloat("_CoolEnd");
-        warmStart = template.GetFloat("_WarmStart");
-        warmEnd = template.GetFloat("_WarmEnd");
-        highlightStart = template.GetFloat("_HighlightStart");
         highlightStrength = template.GetFloat("_HighlightStrength");
     }
 

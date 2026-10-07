@@ -31,9 +31,11 @@ public sealed class PhotoWallViewController : MonoBehaviour
     [SerializeField, Min(0f)] private float framingPadding = 0.35f;
     [SerializeField] private Vector2 framingOffset = Vector2.zero;
 
-    [Header("Photo Hover Outline")]
+    [Header("Photo Outlines")]
     [SerializeField] private Color hoverOutlineColor = new Color(1f, 0.82f, 0.2f, 1f);
     [SerializeField, Min(0.00001f)] private float hoverOutlineWidth = 0.001f;
+    [Tooltip("照片放到正确编号位置后持续显示的描边颜色。")]
+    [SerializeField] private Color correctOutlineColor = new Color(0.25f, 1f, 0.38f, 1f);
 
     [Header("Entrance Hit Area")]
     [SerializeField, Min(0f)] private float entrancePadding = 0.001f;
@@ -73,6 +75,7 @@ public sealed class PhotoWallViewController : MonoBehaviour
             {
                 puzzleController = photoWallRoot.gameObject.AddComponent<PhotoWallPuzzleController>();
             }
+            puzzleController.ConfigureCorrectOutline(correctOutlineColor);
             if (photoWallRoot.GetComponent<PhotoWallHoverDebug>() == null)
             {
                 photoWallRoot.gameObject.AddComponent<PhotoWallHoverDebug>();
@@ -81,6 +84,20 @@ public sealed class PhotoWallViewController : MonoBehaviour
         frameCollider = FindFrameCollider();
         if (frameCollider == null)
             Debug.LogWarning("Photo-wall entry could not find the authored frame Collider; it will use the clicked photo-wall Collider normal.", this);
+    }
+
+    private void OnValidate()
+    {
+        if (photoWallRoot == null)
+        {
+            return;
+        }
+
+        PhotoWallPuzzleController controller = photoWallRoot.GetComponent<PhotoWallPuzzleController>();
+        if (controller != null)
+        {
+            controller.ConfigureCorrectOutline(correctOutlineColor);
+        }
     }
 
     private void Start()

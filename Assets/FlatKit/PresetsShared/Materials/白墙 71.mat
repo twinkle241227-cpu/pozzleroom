@@ -142,7 +142,7 @@ Material:
     - _OverrideShadows: 1
     - _OverrideShadowsEnabled: 1
     - _Parallax: 0.02
-    - _PatternScale: 3.1
+    - _PatternScale: 4.1
     - _PatternStrength: 0.274
     - _QueueOffset: 0
     - _RimEnabled: 0
@@ -177,7 +177,7 @@ Material:
     - _WorldPatternScale: 0.17
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.59119487, g: 0.52121484, b: 0.4591985, a: 1}
+    - _BaseColor: {r: 1, g: 0.97502774, b: 0.95283014, a: 1}
     - _Color: {r: 1, g: 0.6618828, b: 0.26886788, a: 1}
     - _ColorCelShadow: {r: 0.38581347, g: 0.38787434, b: 0.9622642, a: 1}
     - _ColorDim: {r: 0.11949676, g: 0.11949676, b: 0.11949676, a: 1}
