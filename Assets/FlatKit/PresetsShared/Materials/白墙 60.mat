@@ -8,19 +8,19 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: "\u767D\u5899 60"
-  m_Shader: {fileID: 4800000, guid: 8c8b45e4a9a44e74b83d68abec8b7601, type: 3}
+  m_Shader: {fileID: 4800000, guid: bee44b4a58655ee4cbff107302a3e131, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords:
+  m_ValidKeywords:
   - DR_CEL_EXTRA_ON
   - DR_SPECULAR_ON
   - _CELPRIMARYMODE_SINGLE
+  - _TEXTUREBLENDINGMODE_MULTIPLY
+  - _UNITYSHADOWMODE_COLOR
+  m_InvalidKeywords:
   - _FLAT_RIM_ENABLED
   - _FLAT_SHADOWS_ENABLED
   - _FLAT_SPECULAR_ENABLED
-  - _TEXTUREBLENDINGMODE_MULTIPLY
-  - _UNITYSHADOWMODE_COLOR
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -107,9 +107,9 @@ Material:
     - _FlatRimSize: 0.4
     - _FlatShadowsEnabled: 1
     - _FlatSmoothness: 0.362
-    - _FlatSpecularEdgeSmoothness: 0.5
+    - _FlatSpecularEdgeSmoothness: 0
     - _FlatSpecularEnabled: 1
-    - _FlatSpecularSize: 0.16
+    - _FlatSpecularSize: 0.764
     - _FlatSpecularSmoothness: 0.5
     - _Flatness: 1
     - _FlatnessExtra: 1
@@ -177,10 +177,10 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.7073479, g: 0.91823894, b: 0.6092717, a: 1}
+    - _BaseColor: {r: 0.6808476, g: 0.8050314, b: 0.62529165, a: 1}
     - _Color: {r: 1, g: 0.6618828, b: 0.26886788, a: 1}
     - _ColorCelShadow: {r: 0.38581347, g: 0.38787434, b: 0.9622642, a: 1}
-    - _ColorDim: {r: 0.11949676, g: 0.11949676, b: 0.11949676, a: 1}
+    - _ColorDim: {r: 0.3349536, g: 0.5283019, b: 0.24089234, a: 1}
     - _ColorDimCurve: {r: 0.85, g: 0.85, b: 0.85, a: 0.85}
     - _ColorDimExtra: {r: 0, g: 0, b: 0, a: 1}
     - _ColorDimSteps: {r: 0.85, g: 0.85, b: 0.85, a: 0.85}

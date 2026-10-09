@@ -1,0 +1,55 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 711de08008b4449a43997f0c6f1bbc72 1
+  m_Shader: {fileID: 4800000, guid: 8c8b45e4a9a44e74b83d68abec8b7601, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 978787ad7e4d9614e93c7e86316412b1, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _PatternAtlas:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Cutoff: 0.5
+    - _DotStrength: 0.38
+    - _HighlightBoost: 1.45
+    - _HighlightStrength: 0.72
+    - _MappingMode: 0
+    - _Metallic: 0
+    - _PatternScale: 3.2
+    - _PatternStrength: 0.28
+    - _Smoothness: 0.18
+    - _SpecularSize: 0.42
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CoolShadowColor: {r: 0.15999997, g: 0.29999998, b: 0.62, a: 1}
+    - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
+    - _ObjectBoundsCenter: {r: 0, g: 0, b: 0, a: 0}
+    - _ObjectBoundsSize: {r: 1, g: 1, b: 1, a: 0}
+    - _ObjectWorldScale: {r: 1, g: 1, b: 1, a: 0}
+    - _RandomOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _WarmLitColor: {r: 1, g: 0.37999994, b: 0.15999997, a: 1}
+  m_BuildTextureStacks: []

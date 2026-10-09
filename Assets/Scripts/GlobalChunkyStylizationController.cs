@@ -14,7 +14,7 @@ using UnityEditor;
 public sealed class GlobalChunkyStylizationController : MonoBehaviour
 {
     [Header("全局开关")]
-    [SerializeField] private bool applyOnStart = true;
+    [SerializeField] private bool applyOnStart = false;
     [Tooltip("启用后从 Resources/GlobalChunkyStyleTemplate 材质读取可持久保存的风格参数。")]
     [SerializeField] private bool useTemplateValues = true;
     [SerializeField] private bool includeInactiveObjects;
@@ -42,18 +42,6 @@ public sealed class GlobalChunkyStylizationController : MonoBehaviour
     private readonly Dictionary<Renderer, Material[]> originalMaterials = new Dictionary<Renderer, Material[]>();
     private Shader stylizedShader;
     private bool isApplying;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void EnsureControllerExists()
-    {
-        if (FindObjectOfType<GlobalChunkyStylizationController>() != null)
-        {
-            return;
-        }
-
-        GameObject controllerObject = new GameObject("GlobalChunkyStylization");
-        controllerObject.AddComponent<GlobalChunkyStylizationController>();
-    }
 
     private void Start()
     {

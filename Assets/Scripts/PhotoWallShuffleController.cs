@@ -10,6 +10,10 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
 {
     [SerializeField] private Transform photoWallRoot;
     [SerializeField, Min(1)] private int maxPhotosPerPin = 2;
+    [Header("Photo Depth Layering")]
+    [Tooltip("同一图钉的第二张照片沿照片墙正面方向额外前移的距离，用来避免两张照片共面闪烁。")]
+    [SerializeField, Min(0f)] private float secondPhotoDepthOffset = 0.002f;
+    [Tooltip("第二张照片在墙面内的轻微错位；不会改变前后深度。")]
     [SerializeField] private Vector3 secondPhotoLocalOffset = new Vector3(0.0015f, -0.001f, 0.0015f);
 
     [Header("Random Rotation")]
@@ -73,7 +77,7 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
             Vector3 stackingOffset = slotIndex == 0 ? Vector3.zero : secondPhotoLocalOffset;
             SetAxis(ref stackingOffset, wallNormalAxis, 0f);
             Vector3 localPositionOffset = state.PlanarPinOffset + stackingOffset;
-            SetAxis(ref localPositionOffset, wallNormalAxis, photoPlaneOffset);
+            SetAxis(ref localPositionOffset, wallNormalAxis, GetLayeredPhotoPlaneOffset(slotIndex));
             position = pin.position + photoWallRoot.TransformVector(localPositionOffset);
             return true;
         }
@@ -152,7 +156,7 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
             SetAxis(ref stackingOffset, wallNormalAxis, 0f);
 
             Vector3 localPositionOffset = photo.PlanarPinOffset + stackingOffset;
-            SetAxis(ref localPositionOffset, wallNormalAxis, photoPlaneOffset);
+            SetAxis(ref localPositionOffset, wallNormalAxis, GetLayeredPhotoPlaneOffset(slot.Index));
 
             float angle = GetRandomRotationAngle();
             Vector3 localRotationAxis = GetAxisVector(wallNormalAxis);
@@ -317,6 +321,20 @@ public sealed class PhotoWallShuffleController : MonoBehaviour
     private static Vector3 GetAxisVector(int axis)
     {
         return axis == 0 ? Vector3.right : axis == 1 ? Vector3.up : Vector3.forward;
+    }
+
+    private float GetLayeredPhotoPlaneOffset(int slotIndex)
+    {
+        if (slotIndex <= 0 || secondPhotoDepthOffset <= 0f)
+        {
+            return photoPlaneOffset;
+        }
+
+        // photoPlaneOffset already points toward the side from which the player
+        // views the wall. Preserve that direction even if this FBX uses X, Y,
+        // or Z as its depth axis.
+        float outwardSign = Mathf.Sign(photoPlaneOffset);
+        return photoPlaneOffset + outwardSign * secondPhotoDepthOffset;
     }
 
     private static bool IsRuntimeOutline(Transform candidate)

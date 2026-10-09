@@ -8,19 +8,19 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: "\u767D\u5899 61"
-  m_Shader: {fileID: 4800000, guid: 8c8b45e4a9a44e74b83d68abec8b7601, type: 3}
+  m_Shader: {fileID: 4800000, guid: bee44b4a58655ee4cbff107302a3e131, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords:
+  m_ValidKeywords:
   - DR_CEL_EXTRA_ON
   - DR_SPECULAR_ON
   - _CELPRIMARYMODE_SINGLE
+  - _TEXTUREBLENDINGMODE_MULTIPLY
+  - _UNITYSHADOWMODE_COLOR
+  m_InvalidKeywords:
   - _FLAT_RIM_ENABLED
   - _FLAT_SHADOWS_ENABLED
   - _FLAT_SPECULAR_ENABLED
-  - _TEXTUREBLENDINGMODE_MULTIPLY
-  - _UNITYSHADOWMODE_COLOR
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -177,7 +177,7 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.41818565, g: 0.6037736, b: 0.3322653, a: 1}
+    - _BaseColor: {r: 0.5094422, g: 0.61006284, b: 0.4623432, a: 1}
     - _Color: {r: 1, g: 0.6618828, b: 0.26886788, a: 1}
     - _ColorCelShadow: {r: 0.38581347, g: 0.38787434, b: 0.9622642, a: 1}
     - _ColorDim: {r: 0.11949676, g: 0.11949676, b: 0.11949676, a: 1}

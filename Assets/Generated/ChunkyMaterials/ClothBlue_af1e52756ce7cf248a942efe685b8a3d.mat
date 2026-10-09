@@ -40,9 +40,9 @@ Material:
     - _Cutoff: 0.5
     - _DotStrength: 0.38
     - _GrainStrength: 0.08
-    - _HighlightBoost: 0
+    - _HighlightBoost: 1.45
     - _HighlightStart: 0.72
-    - _HighlightStrength: 0
+    - _HighlightStrength: 0.92
     - _MappingMode: 0
     - _Metallic: 0
     - _PatternScale: 3.2
@@ -50,14 +50,14 @@ Material:
     - _SecondaryPatternStrength: 0.22
     - _ShadowDepth: 0.38
     - _Smoothness: 0.18
-    - _SpecularSize: 0.05
+    - _SpecularSize: 0.42
     - _StrokeStrength: 0.18
     - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
     - _WorldPatternScale: 0.72
     m_Colors:
-    - _BaseColor: {r: 0.41236487, g: 0.67384887, b: 0.9433962, a: 1}
+    - _BaseColor: {r: 0.41236478, g: 0.67384887, b: 0.9433962, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
     - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
     - _InkColor: {r: 0.08, g: 0.1, b: 0.22, a: 1}

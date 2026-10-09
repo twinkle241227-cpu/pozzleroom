@@ -12,7 +12,6 @@ using UnityEngine.SceneManagement;
 /// Rebinds loaded-scene opaque renderers to persistent copies that use the
 /// PozzleRoom chunky shader. Source FlatKit materials are never modified.
 /// </summary>
-[InitializeOnLoad]
 internal static class ChunkyMaterialSceneMigrator
 {
     private const string ShaderName = "PozzleRoom/Global Chunky Stylized";
@@ -20,22 +19,9 @@ internal static class ChunkyMaterialSceneMigrator
     private const string SessionKey = "PozzleRoom.ChunkyMaterialMigration.V7";
     private const string PatternAtlasPath = "Assets/Textures/Stylized/ChunkyHandpaintAtlas.png";
 
-    static ChunkyMaterialSceneMigrator()
-    {
-        EditorApplication.delayCall += RunOnceAfterImport;
-    }
-
     [MenuItem("Tools/PozzleRoom/重新应用全场景手绘材质")]
     private static void RunFromMenu()
     {
-        ConvertLoadedScenes();
-    }
-
-    private static void RunOnceAfterImport()
-    {
-        if (Application.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode) return;
-        if (SessionState.GetBool(SessionKey, false)) return;
-        SessionState.SetBool(SessionKey, true);
         ConvertLoadedScenes();
     }
 
