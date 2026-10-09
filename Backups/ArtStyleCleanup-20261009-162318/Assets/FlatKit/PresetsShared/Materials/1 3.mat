@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 1 3
+  m_Shader: {fileID: 4800000, guid: bee44b4a58655ee4cbff107302a3e131, type: 3}
+  m_Parent: {fileID: 2100000, guid: 67e02736826e94ff1a0442df707a7a1c, type: 2}
+  m_ModifiedSerializedProperties: 16
+  m_ValidKeywords:
+  - DR_CEL_EXTRA_ON
+  - _CELPRIMARYMODE_SINGLE
+  - _TEXTUREBLENDINGMODE_MULTIPLY
+  - _UNITYSHADOWMODE_MULTIPLY
+  m_InvalidKeywords:
+  - _FLAT_RIM_ENABLED
+  - _FLAT_SHADOWS_ENABLED
+  - _FLAT_SPECULAR_ENABLED
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 2000
+  stringTagMap:
+    RenderType: Opaque
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 30, y: 15}
+        m_Offset: {x: 1.5, y: 1.7}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 30, y: 15}
+        m_Offset: {x: 1.5, y: 1.7}
+    m_Ints: []
+    m_Floats:
+    - _FlatRimSize: 0.4
+    - _FlatSpecularEdgeSmoothness: 0.5
+    - _FlatSpecularSize: 0.16
+    - _RimEnabled: 0
+    - _SelfShadingSize: 0.84
+    - _SelfShadingSizeExtra: 0.64
+    - _ShadowEdgeSizeExtra: 0.02
+    - _SpecularEnabled: 0
+    - _UnityShadowMode: 1
+    m_Colors:
+    - _BaseColor: {r: 0.38372025, g: 0.44025147, b: 0.29488537, a: 1}
+    - _Color: {r: 1, g: 0.6618828, b: 0.26886788, a: 1}
+    - _ColorDim: {r: 0.35691878, g: 0.44654083, b: 0.22888725, a: 1}
+    - _ColorDimExtra: {r: 0.16150461, g: 0.21383637, b: 0.08674492, a: 1}
+    - _FlatRimColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FlatSpecularColor: {r: 0.8980392, g: 0.47087005, b: 0.25882354, a: 1}
+  m_BuildTextureStacks: []

@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: 06b4b54e5ca77349024829fd6fafefde
+  m_Shader: {fileID: 4800000, guid: 8c8b45e4a9a44e74b83d68abec8b7601, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 4efa96a8bc751954993346931cec78e8, type: 3}
+        m_Scale: {x: 4, y: 4}
+        m_Offset: {x: 0.5, y: 0}
+    - _PatternAtlas:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AtlasStrength: 0.58
+    - _ChunkCoverage: 0.52
+    - _CoolEnd: 0.48
+    - _CoolStart: 0.05
+    - _Cutoff: 0.5
+    - _DotStrength: 0.38
+    - _GrainStrength: 0.18
+    - _HighlightBoost: 1.45
+    - _HighlightStart: 0.72
+    - _HighlightStrength: 0.72
+    - _MappingMode: 0
+    - _Metallic: 0
+    - _PatternScale: 3.2
+    - _PatternStrength: 0.28
+    - _SecondaryPatternStrength: 0.34
+    - _ShadowDepth: 0.38
+    - _Smoothness: 0.18
+    - _SpecularSize: 0.42
+    - _StrokeStrength: 0.32
+    - _ToonSteps: 4
+    - _WarmEnd: 0.88
+    - _WarmStart: 0.42
+    - _WorldPatternScale: 0.72
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CoolShadowColor: {r: 0.15999997, g: 0.29999998, b: 0.62, a: 1}
+    - _HighlightColor: {r: 1, g: 0.96, b: 0.86, a: 1}
+    - _InkColor: {r: 0.079999976, g: 0.09999997, b: 0.21999997, a: 1}
+    - _ObjectBoundsCenter: {r: 0, g: 0, b: 0, a: 0}
+    - _ObjectBoundsSize: {r: 1, g: 1, b: 1, a: 0}
+    - _ObjectWorldScale: {r: 1, g: 1, b: 1, a: 0}
+    - _RandomOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _SecondaryCoolColor: {r: 0.29999998, g: 0.17999998, b: 0.52, a: 1}
+    - _SecondaryWarmColor: {r: 1, g: 0.68, b: 0.19999996, a: 1}
+    - _WarmLitColor: {r: 1, g: 0.37999994, b: 0.15999997, a: 1}
+  m_BuildTextureStacks: []
