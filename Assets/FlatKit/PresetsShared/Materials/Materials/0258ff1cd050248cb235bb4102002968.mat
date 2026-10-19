@@ -158,8 +158,8 @@ Material:
     - _Surface: 0
     - _TextureBlendingMode: 0
     - _TextureImpact: 1
-    - _ToneHigh: 1
-    - _ToneLow: 0.733
+    - _ToneHigh: 0.03
+    - _ToneLow: 0.298
     - _ToneSoftness: 0.001
     - _UnityShadowMode: 0
     - _UnityShadowPower: 0.2

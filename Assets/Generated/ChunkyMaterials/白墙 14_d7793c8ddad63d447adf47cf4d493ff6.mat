@@ -139,7 +139,7 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.42767286, g: 0.35101447, b: 0.35101447, a: 1}
+    - _BaseColor: {r: 0.2830189, g: 0.2830189, b: 0.2830189, a: 1}
     - _Color: {r: 0.42767283, g: 0.35101444, b: 0.35101444, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}

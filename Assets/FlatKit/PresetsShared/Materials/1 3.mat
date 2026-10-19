@@ -62,6 +62,7 @@ Material:
     - _SelfShadingSizeExtra: 0.64
     - _ShadowEdgeSizeExtra: 0.02
     - _SpecularEnabled: 0
+    - _ToneHigh: 0.264
     - _UnityShadowMode: 1
     m_Colors:
     - _BaseColor: {r: 0.38372025, g: 0.44025147, b: 0.29488537, a: 1}

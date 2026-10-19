@@ -142,9 +142,9 @@ Material:
     - _SrcBlendAlpha: 1
     - _StrokeStrength: 0.18
     - _Surface: 0
-    - _ToneHigh: 0.65
-    - _ToneLow: 0.2
-    - _ToneSoftness: 0.035
+    - _ToneHigh: 0
+    - _ToneLow: 0.151
+    - _ToneSoftness: 0.001
     - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42

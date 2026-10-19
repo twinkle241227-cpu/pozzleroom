@@ -208,9 +208,9 @@ Material:
     - _Surface: 0
     - _TextureBlendingMode: 0
     - _TextureImpact: 1
-    - _ToneHigh: 0.65
-    - _ToneLow: 0.2
-    - _ToneSoftness: 0.035
+    - _ToneHigh: 0.27
+    - _ToneLow: 0.05
+    - _ToneSoftness: 0.001
     - _ToonSteps: 4
     - _UVSec: 0
     - _UnityShadowMode: 2

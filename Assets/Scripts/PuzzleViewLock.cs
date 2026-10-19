@@ -36,4 +36,5 @@ public static class PuzzleViewLock
             activeOwner = null;
         }
     }
+
 }

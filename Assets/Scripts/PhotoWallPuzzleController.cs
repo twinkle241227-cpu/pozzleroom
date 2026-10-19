@@ -36,6 +36,7 @@ public sealed class PhotoWallPuzzleController : MonoBehaviour
     private bool areAllPhotosLocked;
     private float nextInitializationAttemptTime;
     private Transform discoveredWallRoot;
+
     private string lastDiscoveryReport;
 
     public bool IsDragging => draggedPhoto != null;

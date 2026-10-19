@@ -182,7 +182,7 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.40880498, g: 0.24461281, b: 0, a: 1}
+    - _BaseColor: {r: 0.7924528, g: 0.5861448, b: 0.2815948, a: 1}
     - _Color: {r: 0.40880492, g: 0.24461278, b: 0, a: 1}
     - _ColorDim: {r: 0.6226415, g: 0.4652867, b: 0.23300101, a: 1}
     - _ColorDimCurve: {r: 0.85023, g: 0.85034, b: 0.8504499, a: 0.85056}

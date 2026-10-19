@@ -129,9 +129,9 @@ Material:
     - _SrcBlendAlpha: 1
     - _StrokeStrength: 0.18
     - _Surface: 0
-    - _ToneHigh: 0.65
-    - _ToneLow: 0.2
-    - _ToneSoftness: 0.035
+    - _ToneHigh: 0.321
+    - _ToneLow: 0.111
+    - _ToneSoftness: 0.044
     - _ToonSteps: 4
     - _WarmEnd: 0.88
     - _WarmStart: 0.42
@@ -139,7 +139,7 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.7610062, g: 0.7031431, b: 0.65331656, a: 1}
+    - _BaseColor: {r: 0.6603774, g: 0.5530833, b: 0.46724808, a: 1}
     - _Color: {r: 0.7610062, g: 0.7031431, b: 0.65331656, a: 1}
     - _CoolShadowColor: {r: 0.16, g: 0.3, b: 0.62, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}

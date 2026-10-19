@@ -190,9 +190,9 @@ Material:
     - _Surface: 0
     - _TextureBlendingMode: 0
     - _TextureImpact: 1
-    - _ToneHigh: 0.65
-    - _ToneLow: 0.2
-    - _ToneSoftness: 0.035
+    - _ToneHigh: 0.141
+    - _ToneLow: 0.078
+    - _ToneSoftness: 0.001
     - _ToonSteps: 2
     - _UVSec: 0
     - _UnityShadowMode: 2
@@ -205,7 +205,7 @@ Material:
     - _WorldPatternScale: 0.72
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 1, g: 0.7388103, b: 0.26666665, a: 1}
+    - _BaseColor: {r: 0.9496855, g: 0.7551624, b: 0.40316826, a: 1}
     - _Color: {r: 1, g: 0.7388103, b: 0.2666666, a: 1}
     - _ColorCelShadow: {r: 0.38581347, g: 0.38787434, b: 0.9622642, a: 1}
     - _ColorDim: {r: 0.8238993, g: 0.5651162, b: 0.09068065, a: 1}

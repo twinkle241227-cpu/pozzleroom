@@ -20,6 +20,8 @@ public sealed class BedPileViewController : MonoBehaviour
     private LadderClimbEntranceController ladderClimb;
     private Transform bedHead;
     private Camera bedViewCamera;
+    private Transform endingCameraAnchor;
+    private Camera endingCamera;
     private Camera targetCamera;
     private Vector3 previousCameraPosition;
     private Quaternion previousCameraRotation;
@@ -28,9 +30,25 @@ public sealed class BedPileViewController : MonoBehaviour
     private float previousOrthographicSize;
     private bool isFocused;
     private bool isTransitioning;
+    private bool isEnding;
     private Transform draggedPile;
     private Plane dragPlane;
     private Vector3 dragOffset;
+
+    /// <summary>True only after the clothes puzzle has moved the player into the ending view.</summary>
+    public static bool IsEndingViewActive { get; private set; }
+
+    [Header("Clothes Completion Ending")]
+    [Tooltip("How long the completed clothes view stays on screen before the ending camera begins moving.")]
+    [SerializeField, Min(0f)] private float endingDelayBeforeTransition = 1f;
+    [Tooltip("Time taken to move Main Camera to the EndingCamera marker after all piles are hung correctly.")]
+    [SerializeField, Min(0f)] private float endingTransitionDuration = 1.1f;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetEndingViewState()
+    {
+        IsEndingViewActive = false;
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AttachToLadder()
@@ -44,16 +62,24 @@ public sealed class BedPileViewController : MonoBehaviour
 
     private void Awake()
     {
+        IsEndingViewActive = false;
         ladderClimb = GetComponent<LadderClimbEntranceController>();
         bedHead = FindSceneTransform("床头");
         bedViewCamera = FindSceneCamera("BedViewCamera");
-        DisableTemplateCamera();
+        endingCameraAnchor = FindEndingCameraAnchor();
+        endingCamera = endingCameraAnchor != null ? endingCameraAnchor.GetComponent<Camera>() : null;
+        DisableTemplateCameras();
         CollectPiles();
         HideClothsAtStart();
     }
 
     private void Update()
     {
+        if (isEnding)
+        {
+            return;
+        }
+
         if (ladderClimb == null)
         {
             ladderClimb = GetComponent<LadderClimbEntranceController>();
@@ -67,7 +93,7 @@ public sealed class BedPileViewController : MonoBehaviour
         if (bedViewCamera == null)
         {
             bedViewCamera = FindSceneCamera("BedViewCamera");
-            DisableTemplateCamera();
+            DisableTemplateCameras();
         }
 
         if (targetCamera == null || isTransitioning)
@@ -228,7 +254,77 @@ public sealed class BedPileViewController : MonoBehaviour
         cloth.gameObject.SetActive(true);
         pile.gameObject.SetActive(false);
         Debug.Log($"[BedPileView] {colour} pile placed correctly; {colour} cloth revealed.", this);
+
+        if (piles.Count > 0 && placedPiles.Count >= piles.Count)
+        {
+            BeginClothesEnding();
+        }
+
         return true;
+    }
+
+    private void BeginClothesEnding()
+    {
+        if (isEnding)
+        {
+            return;
+        }
+
+        if (endingCameraAnchor == null || endingCameraAnchor == targetCamera.transform)
+        {
+            endingCameraAnchor = FindEndingCameraAnchor();
+            endingCamera = endingCameraAnchor != null ? endingCameraAnchor.GetComponent<Camera>() : null;
+            DisableTemplateCameras();
+        }
+
+        if (endingCameraAnchor == null)
+        {
+            Debug.LogWarning("[BedPileView] All clothes are hung, but no scene object named 'EndingCamera' was found. Ending transition was not started.", this);
+            return;
+        }
+
+        isEnding = true;
+        draggedPile = null;
+        ladderClimb?.SetExternalViewActive(true);
+
+        if (endingCamera != null)
+        {
+            CopyProjection(endingCamera, targetCamera);
+        }
+
+        StartCoroutine(MoveCameraToEnding());
+        Debug.Log("[BedPileView] All clothes are hung correctly. Entering EndingCamera view.", this);
+    }
+
+    private IEnumerator MoveCameraToEnding()
+    {
+        isTransitioning = true;
+
+        if (endingDelayBeforeTransition > 0f)
+        {
+            yield return new WaitForSecondsRealtime(endingDelayBeforeTransition);
+        }
+
+        Vector3 startPosition = targetCamera.transform.position;
+        Quaternion startRotation = targetCamera.transform.rotation;
+        float elapsed = 0f;
+
+        while (elapsed < endingTransitionDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = endingTransitionDuration <= 0f
+                ? 1f
+                : Mathf.SmoothStep(0f, 1f, elapsed / endingTransitionDuration);
+            targetCamera.transform.SetPositionAndRotation(
+                Vector3.Lerp(startPosition, endingCameraAnchor.position, progress),
+                Quaternion.Slerp(startRotation, endingCameraAnchor.rotation, progress));
+            yield return null;
+        }
+
+        targetCamera.transform.SetPositionAndRotation(endingCameraAnchor.position, endingCameraAnchor.rotation);
+        isTransitioning = false;
+        IsEndingViewActive = true;
+        Debug.Log("[BedPileView] EndingCamera view reached. Ending door is now available.", this);
     }
 
     private static string GetColour(string objectName)
@@ -335,7 +431,8 @@ public sealed class BedPileViewController : MonoBehaviour
         foreach (Transform candidate in Resources.FindObjectsOfTypeAll<Transform>())
         {
             if (candidate != null && candidate.gameObject.scene.IsValid() &&
-                candidate.name.IndexOf("pile", StringComparison.OrdinalIgnoreCase) >= 0)
+                candidate.name.EndsWith(" pile", StringComparison.OrdinalIgnoreCase) &&
+                GetColour(candidate.name) != null)
             {
                 piles.Add(candidate);
             }
@@ -446,6 +543,21 @@ public sealed class BedPileViewController : MonoBehaviour
         return transform != null ? transform.GetComponent<Camera>() : null;
     }
 
+    private Transform FindEndingCameraAnchor()
+    {
+        foreach (Transform candidate in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if (candidate != null && candidate.gameObject.scene.IsValid() &&
+                string.Equals(candidate.name, "EndingCamera", StringComparison.OrdinalIgnoreCase) &&
+                (targetCamera == null || candidate != targetCamera.transform))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     private static void CopyProjection(Camera source, Camera destination)
     {
         destination.orthographic = source.orthographic;
@@ -460,11 +572,22 @@ public sealed class BedPileViewController : MonoBehaviour
         targetCamera.orthographicSize = previousOrthographicSize;
     }
 
-    private void DisableTemplateCamera()
+    private void DisableTemplateCameras()
     {
-        if (bedViewCamera != null && bedViewCamera != targetCamera)
+        DisableTemplateCamera(bedViewCamera);
+        DisableTemplateCamera(endingCamera);
+    }
+
+    private void DisableTemplateCamera(Camera templateCamera)
+    {
+        if (templateCamera != null && templateCamera != targetCamera)
         {
-            bedViewCamera.enabled = false;
+            templateCamera.enabled = false;
+            AudioListener listener = templateCamera.GetComponent<AudioListener>();
+            if (listener != null)
+            {
+                listener.enabled = false;
+            }
         }
     }
 }
